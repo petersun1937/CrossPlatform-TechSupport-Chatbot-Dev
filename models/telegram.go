@@ -1,5 +1,6 @@
 package models
 
+/*
 // TelegramUpdate represents a Telegram update
 type TelegramUpdate struct {
 	UpdateID int             `json:"update_id"`
@@ -34,3 +35,4 @@ type TelegramChat struct {
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
 }
+*/

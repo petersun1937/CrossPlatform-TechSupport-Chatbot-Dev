@@ -150,9 +150,13 @@ func handleCommand(chatId int64, command string) error {
 		_, err = Bot.Send(msg)
 	case "/scream":
 		screaming = true // Enable screaming mode
+		msg := tgbotapi.NewMessage(chatId, "Scream mode enabled!")
+		_, err = Bot.Send(msg)
 
 	case "/whisper":
 		screaming = false // Disable screaming mode
+		msg := tgbotapi.NewMessage(chatId, "Scream mode disabled!")
+		_, err = Bot.Send(msg)
 
 	case "/menu":
 		err = sendMenu(chatId) // Send a menu to the chat
@@ -188,7 +192,7 @@ func handleButton(query *tgbotapi.CallbackQuery) {
 	callbackCfg := tgbotapi.NewCallback(query.ID, "")
 	Bot.Send(callbackCfg)
 
-	// Edit the message text and markup to reflect the button click
+	// Replace menu text and keyboard
 	msg := tgbotapi.NewEditMessageTextAndMarkup(query.Message.Chat.ID, query.Message.MessageID, text, markup)
 	msg.ParseMode = tgbotapi.ModeHTML
 	Bot.Send(msg)

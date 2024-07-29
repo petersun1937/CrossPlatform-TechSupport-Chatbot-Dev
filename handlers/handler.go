@@ -1,15 +1,13 @@
 package handlers
 
 import (
-	"Tg_chatbot/models"
-	"Tg_chatbot/utils"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+/*
 // handles incoming updates from the Telegram webhook
 func HandleTelegramWebhook(c *gin.Context) {
 	var update models.TelegramUpdate
@@ -48,7 +46,7 @@ func HandleTelegramWebhook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
-/*func HandleTelegramWebhook(c *gin.Context) {
+func HandleTelegramWebhook(c *gin.Context) {
 	var update models.TelegramUpdate
 	if err := c.BindJSON(&update); err != nil {
 		log.Printf("Error parsing request: %v", err)
