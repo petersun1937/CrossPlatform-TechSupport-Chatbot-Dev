@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"Tg_chatbot/handlers"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,8 +22,8 @@ func InitRoutes(r *gin.Engine) { // , db *gorm.DB
 	r.Use(gin.Recovery())
 
 	// Define routes
-	r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
-	r.POST("/api/message", handlers.HandleCustomMessage)
+	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
+	//r.POST("/api/message", handlers.HandleCustomMessage)
 
 	log.Println("Server started")
 	r.Run(":8080")

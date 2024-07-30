@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"Tg_chatbot/handlers"
 	"Tg_chatbot/server"
 	"Tg_chatbot/utils"
 
@@ -80,7 +81,7 @@ func main() {
 	updates := utils.Bot.GetUpdatesChan(u)
 
 	// Start receiving updates
-	go utils.ReceiveUpdates(ctx, updates)
+	go handlers.ReceiveUpdates(ctx, updates)
 
 	// Wait for a newline symbol, then cancel handling updates
 	log.Println("Bot is running. Press Enter to stop.")
