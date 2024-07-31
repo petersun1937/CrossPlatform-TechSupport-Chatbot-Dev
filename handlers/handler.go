@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"Tg_chatbot/models"
 	"Tg_chatbot/utils"
 	"context"
 	"log"
+	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -52,13 +55,36 @@ func handleMessage(message *tgbotapi.Message) {
 		msg.Entities = message.Entities
 		_, err = utils.Bot.Send(msg)
 	} else {
+		// Process the message using processMessage function
+		response := processMessage(text)
+		msg := tgbotapi.NewMessage(message.Chat.ID, response)
+		_, err = utils.Bot.Send(msg)
+
 		// Copy the message without the sender's name
-		copyMsg := tgbotapi.NewCopyMessage(message.Chat.ID, message.Chat.ID, message.MessageID)
-		_, err = utils.Bot.CopyMessage(copyMsg)
+		//msg := tgbotapi.NewCopyMessage(message.Chat.ID, message.Chat.ID, message.MessageID)
+		//_, err = utils.Bot.CopyMessage(msg)
 	}
 
 	if err != nil {
 		log.Printf("An error occurred: %s", err.Error())
+	}
+}
+
+func processMessage(message string) string {
+	message = strings.ToLower(message)
+	switch {
+	case strings.Contains(message, "hello"):
+		return "Hello! How may I help you?"
+	case strings.Contains(message, "help"):
+		return "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
+	case strings.Contains(message, "scream"):
+		utils.Screaming = true
+		return "Scream mode enabled!"
+	case strings.Contains(message, "whisper"):
+		utils.Screaming = false
+		return "Scream mode disabled!"
+	default:
+		return "I'm sorry, I didn't understand that. Type /help to see what I can do."
 	}
 }
 
@@ -120,19 +146,15 @@ func handleButton(query *tgbotapi.CallbackQuery) {
 	utils.Bot.Send(msg)
 }
 
-/*
 // handles incoming updates from the Telegram webhook
 func HandleTelegramWebhook(c *gin.Context) {
 	var update models.TelegramUpdate
-	// Bind the incoming JSON payload to the update model
 	if err := c.BindJSON(&update); err != nil {
 		log.Printf("Error parsing request: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
 		return
 	}
-	log.Printf("Received message from Telegram: %s", update.Message.Text)
-	// Convert the custom update model to the tgbotapi.Update type and handle it
-	utils.HandleTelegramUpdate(tgbotapi.Update{
+	HandleTelegramUpdate(tgbotapi.Update{
 		UpdateID: update.UpdateID,
 		Message: &tgbotapi.Message{
 			MessageID: update.Message.MessageID,
@@ -158,7 +180,6 @@ func HandleTelegramWebhook(c *gin.Context) {
 	})
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
-*/
 
 // processes custom messages
 /*

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"Tg_chatbot/handlers"
 	"log"
 	"os"
 	"strconv"
@@ -22,7 +23,7 @@ func InitRoutes(r *gin.Engine) { // , db *gorm.DB
 	r.Use(gin.Recovery())
 
 	// Define routes
-	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
+	r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
 	//r.POST("/api/message", handlers.HandleCustomMessage)
 
 	log.Println("Server started")
