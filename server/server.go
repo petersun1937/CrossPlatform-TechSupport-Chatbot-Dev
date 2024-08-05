@@ -5,21 +5,22 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Server struct {
 	cfg Config
-	//db  *gorm.DB
+	db  *gorm.DB
 }
 
-/*func New(cfg Config, db *gorm.DB) *Server {
+func New(cfg Config, db *gorm.DB) *Server {
 	return &Server{cfg: cfg,
 		db: db}
-}*/
-
-func New(cfg Config) *Server {
-	return &Server{cfg: cfg}
 }
+
+/*func New(cfg Config) *Server {
+	return &Server{cfg: cfg}
+}*/
 
 func (s *Server) Start() error {
 
@@ -27,8 +28,8 @@ func (s *Server) Start() error {
 	router := gin.Default()
 
 	// Initialize routes
-	InitRoutes(router)
-	//InitRoutes(router, s.db)
+	//InitRoutes(router)
+	InitRoutes(router, s.db)
 
 	log.Println("Starting the server on port", s.cfg.Port)
 	//return router.Run(s.cfg.Host + ":" + string(s.cfg.Port))

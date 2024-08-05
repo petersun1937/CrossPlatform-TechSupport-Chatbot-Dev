@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"Tg_chatbot/database"
 	"Tg_chatbot/models"
 	"Tg_chatbot/utils"
+	"Tg_chatbot/utils/token"
 	"context"
 	"log"
 	"net/http"
@@ -42,34 +44,115 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	log.Printf("Received message from %s: %s", user.FirstName, text)
-	log.Printf("Chat ID: %d", message.Chat.ID) // Log the Chat ID
+	// Check if the user exists in the database
+	var dbUser models.User
+	err := database.DB.Where("user_id = ?", user.ID).First(&dbUser).Error
 
-	var err error
-	if strings.HasPrefix(text, "/") {
-		// Handle commands
-		err = handleCommand(message.Chat.ID, text)
-	} else if utils.Screaming && len(text) > 0 {
-		// If screaming mode is on, send the text in uppercase
-		msg := tgbotapi.NewMessage(message.Chat.ID, strings.ToUpper(text))
-		msg.Entities = message.Entities
-		_, err = utils.Bot.Send(msg)
+	// If the user does not exist, create a new user record
+	if err != nil {
+		dbUser = models.User{
+			UserID:       user.ID,
+			FirstName:    user.FirstName,
+			LastName:     user.LastName,
+			UserName:     user.UserName,
+			LanguageCode: user.LanguageCode,
+		}
+		err = database.DB.Create(&dbUser).Error
+		if err != nil {
+			log.Printf("Error creating user: %s", err.Error())
+			return
+		}
+
+		// Generate a JWT token for the new user
+		token, err := token.GenerateToken(int(user.ID), "user") // Convert int64 to int
+		if err != nil {
+			log.Printf("Error generating JWT: %s", err.Error())
+			return
+		}
+
+		// Send the token to the user
+		msg := tgbotapi.NewMessage(message.Chat.ID, "Welcome! Your access token is: "+token)
+		utils.Bot.Send(msg)
 	} else {
-		// Process the message using processMessage function
-		response := processMessage(text)
+		log.Printf("Received message from %s: %s", user.FirstName, text)
+		log.Printf("Chat ID: %d", message.Chat.ID)
+
+		var response string
+		if strings.HasPrefix(text, "/") {
+			// Handle commands
+			err = handleCommand(message.Chat.ID, text)
+			if err != nil {
+				log.Printf("An error occurred: %s", err.Error())
+				response = "An error occurred while processing your command."
+			}
+		} else if utils.Screaming && len(text) > 0 {
+			// If screaming mode is on, send the text in uppercase
+			response = strings.ToUpper(text)
+		} else {
+			// Process the message using processMessage function
+			response = processMessage(text)
+		}
+
 		msg := tgbotapi.NewMessage(message.Chat.ID, response)
 		_, err = utils.Bot.Send(msg)
-
-		// Copy the message without the sender's name
-		//msg := tgbotapi.NewCopyMessage(message.Chat.ID, message.Chat.ID, message.MessageID)
-		//_, err = utils.Bot.CopyMessage(msg)
-	}
-
-	if err != nil {
-		log.Printf("An error occurred: %s", err.Error())
+		if err != nil {
+			log.Printf("An error occurred: %s", err.Error())
+		}
 	}
 }
 
+func processMessage(message string) string {
+	message = strings.ToLower(message)
+	switch {
+	case strings.Contains(message, "hello"):
+		return "Hello! How can I assist you today?"
+	case strings.Contains(message, "help"):
+		return "Here are some commands you can use: /start, /help"
+	default:
+		return "I'm sorry, I didn't understand that. Type /help to see what I can do."
+	}
+}
+
+/*
+// handleMessage processes incoming messages from users
+
+	func handleMessage(message *tgbotapi.Message) {
+		user := message.From
+		text := message.Text
+
+		if user == nil {
+			return
+		}
+
+		log.Printf("Received message from %s: %s", user.FirstName, text)
+		log.Printf("Chat ID: %d", message.Chat.ID) // Log the Chat ID
+
+		var err error
+		if strings.HasPrefix(text, "/") {
+			// Handle commands
+			err = handleCommand(message.Chat.ID, text)
+		} else if utils.Screaming && len(text) > 0 {
+			// If screaming mode is on, send the text in uppercase
+			msg := tgbotapi.NewMessage(message.Chat.ID, strings.ToUpper(text))
+			msg.Entities = message.Entities
+			_, err = utils.Bot.Send(msg)
+		} else {
+			// Process the message using processMessage function
+			response := processMessage(text)
+			msg := tgbotapi.NewMessage(message.Chat.ID, response)
+			_, err = utils.Bot.Send(msg)
+
+			// Copy the message without the sender's name
+			//msg := tgbotapi.NewCopyMessage(message.Chat.ID, message.Chat.ID, message.MessageID)
+			//_, err = utils.Bot.CopyMessage(msg)
+		}
+
+		if err != nil {
+			log.Printf("An error occurred: %s", err.Error())
+		}
+	}
+*/
+/*
 func processMessage(message string) string {
 	message = strings.ToLower(message)
 	switch {
@@ -87,7 +170,7 @@ func processMessage(message string) string {
 		return "I'm sorry, I didn't understand that. Type /help to see what I can do."
 	}
 }
-
+*/
 // handleCommand processes commands sent by users
 func handleCommand(chatId int64, command string) error {
 	var err error
@@ -100,19 +183,15 @@ func handleCommand(chatId int64, command string) error {
 		utils.Screaming = true // Enable screaming mode
 		msg := tgbotapi.NewMessage(chatId, "Scream mode enabled!")
 		_, err = utils.Bot.Send(msg)
-
 	case "/whisper":
 		utils.Screaming = false // Disable screaming mode
 		msg := tgbotapi.NewMessage(chatId, "Scream mode disabled!")
 		_, err = utils.Bot.Send(msg)
-
 	case "/menu":
 		err = utils.SendMenu(chatId) // Send a menu to the chat
-
 	case "/help":
 		msg := tgbotapi.NewMessage(chatId, "Here are some commands you can use: /start, /help, /scream, /whisper, /menu")
 		_, err = utils.Bot.Send(msg)
-
 	case "/custom":
 		utils.SendTelegramResponse(chatId, "This is a custom response!") // Send a custom response
 	default:
@@ -123,7 +202,6 @@ func handleCommand(chatId int64, command string) error {
 	return err
 }
 
-// handleButton processes callback queries from inline keyboard buttons
 func handleButton(query *tgbotapi.CallbackQuery) {
 	var text string
 	markup := tgbotapi.NewInlineKeyboardMarkup()
@@ -136,11 +214,9 @@ func handleButton(query *tgbotapi.CallbackQuery) {
 		markup = utils.FirstMenuMarkup
 	}
 
-	// Send a callback response
 	callbackCfg := tgbotapi.NewCallback(query.ID, "")
 	utils.Bot.Send(callbackCfg)
 
-	// Replace menu text and keyboard
 	msg := tgbotapi.NewEditMessageTextAndMarkup(query.Message.Chat.ID, query.Message.MessageID, text, markup)
 	msg.ParseMode = tgbotapi.ModeHTML
 	utils.Bot.Send(msg)

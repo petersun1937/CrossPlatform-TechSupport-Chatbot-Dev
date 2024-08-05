@@ -1,6 +1,7 @@
 package server
 
 import (
+	"Tg_chatbot/database"
 	"Tg_chatbot/handlers"
 	"log"
 	"os"
@@ -8,9 +9,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func InitRoutes(r *gin.Engine) { // , db *gorm.DB
+func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	// Set up logging to a file
 	file, err := os.OpenFile("bot.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -47,11 +49,11 @@ func RunRoutes() {
 		}
 	}
 
-	//db := database.DB // Get the initialized DB instance
+	db := database.DB // Get the initialized DB instance
 
 	log.Println("Starting the server on port " + strconv.Itoa(cfg.Port))
-	//svr := New(cfg, db)
-	svr := New(cfg)
+	svr := New(cfg, db)
+	//svr := New(cfg)
 	if err := svr.Start(); err != nil {
 		log.Fatal(err)
 	}

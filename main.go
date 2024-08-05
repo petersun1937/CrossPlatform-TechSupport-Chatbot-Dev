@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"Tg_chatbot/database"
 	"Tg_chatbot/handlers"
 	"Tg_chatbot/server"
 	"Tg_chatbot/utils"
@@ -26,13 +27,16 @@ func main() {
 	if botToken == "" {
 		log.Fatal("TELEGRAM_BOT_TOKEN environment variable not set")
 	}
+
+	dbstr := os.Getenv("DATABASE_URL")
+	database.InitPostgresDB(dbstr) // Initialize the database connection (defined in package "DB")
 	/*webhookURL := os.Getenv("WEBHOOK_URL")
 	if webhookURL == "" {
 		log.Fatal("WEBHOOK_URL environment variable not set")
 	}*/
 
 	// Initialize Telegram Bot
-	utils.Bot, err = tgbotapi.NewBotAPI(botToken)
+	utils.Bot, err = tgbotapi.NewBotAPI(botToken) // creates new BotAPI instance
 	if err != nil {
 		log.Panic(err)
 	}
@@ -70,17 +74,18 @@ func main() {
 	go server.RunRoutes()
 
 	// Create a new cancellable background context
+	// This provides a context (ctx) that can be passed around to different functions or goroutines.
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Create a new update configuration (long polling?)
+	// Create a new update configuration (long polling)
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
 	// Get updates channel
 	updates := utils.Bot.GetUpdatesChan(u)
 
-	// Start receiving updates
+	// Start receiving updates (go routine)
 	go handlers.ReceiveUpdates(ctx, updates)
 
 	// Wait for a newline symbol, then cancel handling updates
