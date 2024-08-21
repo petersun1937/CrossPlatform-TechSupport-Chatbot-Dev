@@ -3,6 +3,8 @@ package server
 import (
 	"Tg_chatbot/database"
 	"Tg_chatbot/handlers"
+	"Tg_chatbot/middleware"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -25,10 +27,19 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	r.Use(gin.Recovery())
 
 	// Define routes
-	r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
-	//r.POST("/api/message", handlers.HandleCustomMessage)
+	r.POST("/webhook", handlers.HandleLineWebhook)
+	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
+	//r.POST("/login", handlers.Login)
 
-	log.Println("Server started")
+	// Protected routes
+	authorized := r.Group("/api")
+	authorized.Use(middleware.JWTMiddleware())
+	{
+		authorized.POST("/message", handlers.HandleCustomMessage)
+		// Add other protected routes here
+	}
+
+	fmt.Println("Server started")
 	r.Run(":8080")
 }
 
@@ -51,7 +62,7 @@ func RunRoutes() {
 
 	db := database.DB // Get the initialized DB instance
 
-	log.Println("Starting the server on port " + strconv.Itoa(cfg.Port))
+	fmt.Println("Starting the server on port " + strconv.Itoa(cfg.Port))
 	svr := New(cfg, db)
 	//svr := New(cfg)
 	if err := svr.Start(); err != nil {

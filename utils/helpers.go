@@ -2,16 +2,21 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 
+	dialogflow "cloud.google.com/go/dialogflow/apiv2"
+	dialogflowpb "cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/line/line-bot-sdk-go/linebot"
 )
 
 // Global variables to hold the bot instance and screaming state
-var Bot *tgbotapi.BotAPI
+var TgBot *tgbotapi.BotAPI
 var Screaming bool
 
 // Telegram API URL
@@ -87,6 +92,47 @@ func SendMenu(chatId int64) error {
 	msg := tgbotapi.NewMessage(chatId, FirstMenu)
 	msg.ParseMode = tgbotapi.ModeHTML
 	msg.ReplyMarkup = FirstMenuMarkup
-	_, err := Bot.Send(msg)
+	_, err := TgBot.Send(msg)
 	return err
+}
+
+// For Line bot
+var LineBot *linebot.Client
+
+func InitLineBot(channelSecret, channelToken string) error {
+	bot, err := linebot.New(channelSecret, channelToken)
+	if err != nil {
+		return err
+	}
+	LineBot = bot
+	return nil
+}
+
+func SendLineMenu(replyToken string) error {
+	// ***
+	return nil
+}
+
+func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogflowpb.DetectIntentResponse, error) {
+	ctx := context.Background()
+	client, err := dialogflow.NewSessionsClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer client.Close()
+
+	sessionPath := fmt.Sprintf("projects/%s/agent/sessions/%s", projectID, sessionID)
+	req := &dialogflowpb.DetectIntentRequest{
+		Session: sessionPath,
+		QueryInput: &dialogflowpb.QueryInput{
+			Input: &dialogflowpb.QueryInput_Text{
+				Text: &dialogflowpb.TextInput{
+					Text:         text,
+					LanguageCode: languageCode,
+				},
+			},
+		},
+	}
+
+	return client.DetectIntent(ctx, req)
 }

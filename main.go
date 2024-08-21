@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"os"
 
@@ -36,11 +37,19 @@ func main() {
 	}*/
 
 	// Initialize Telegram Bot
-	utils.Bot, err = tgbotapi.NewBotAPI(botToken) // creates new BotAPI instance
+	utils.TgBot, err = tgbotapi.NewBotAPI(botToken) // creates new BotAPI instance using the token
+	// utils.Bot: global variable (defined in the utils package) that holds the reference to the bot instance.
+
 	if err != nil {
 		log.Panic(err)
 	}
-	utils.Bot.Debug = false
+	utils.TgBot.Debug = false
+
+	// Initialize Linebot
+	err = utils.InitLineBot(os.Getenv("LINE_CHANNEL_SECRET"), os.Getenv("LINE_CHANNEL_TOKEN"))
+	if err != nil {
+		log.Fatal("Error initializing Linebot:", err)
+	}
 
 	// Set webhook URL
 	//_, err = utils.Bot.SetWebhook(tgbotapi.NewWebhook(webhookURL))
@@ -71,10 +80,12 @@ func main() {
 	go http.ListenAndServeTLS("0.0.0.0:8443", certFile, keyFile, nil)*/
 
 	// Initialize and start the server
+	// using a go routine allows the program to handle multiple tasks simultaneously without blocking.
 	go server.RunRoutes()
 
 	// Create a new cancellable background context
 	// This provides a context (ctx) that can be passed around to different functions or goroutines.
+	// context.Background() is often used as the root context for new goroutines when no specific request or context is available.
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -83,13 +94,13 @@ func main() {
 	u.Timeout = 60
 
 	// Get updates channel
-	updates := utils.Bot.GetUpdatesChan(u)
+	updates := utils.TgBot.GetUpdatesChan(u)
 
 	// Start receiving updates (go routine)
 	go handlers.ReceiveUpdates(ctx, updates)
 
-	// Wait for a newline symbol, then cancel handling updates
-	log.Println("Bot is running. Press Enter to stop.")
+	// Wait for a newline symbol, then cancel handling updates (for this to work, run with cmd)
+	fmt.Println("Bot is running. Press Enter to stop.")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 	cancel()
 }
