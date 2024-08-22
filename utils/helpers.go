@@ -23,6 +23,7 @@ var Screaming bool
 const telegramAPIURL = "https://api.telegram.org/bot"
 
 // SendTelegramResponse sends a response to a Telegram chat
+/*
 func SendTelegramResponse(chatID int64, response string) {
 	// Construct the URL for the Telegram API request
 	url := telegramAPIURL + os.Getenv("TELEGRAM_BOT_TOKEN") + "/sendMessage"
@@ -57,6 +58,50 @@ func SendTelegramResponse(chatID int64, response string) {
 
 	// Log the response
 	log.Printf("Response sent to chat ID %d", chatID)
+}*/
+
+// Send a message via LINE
+func SendLineMessage(replyToken string, messageText string) error {
+	replyMessage := linebot.NewTextMessage(messageText)
+	_, err := LineBot.ReplyMessage(replyToken, replyMessage).Do()
+	return err
+}
+
+// Send a message via Telegram
+func SendTelegramMessage(chatID int64, messageText string) error {
+	// Construct the URL for the Telegram API request
+	url := telegramAPIURL + os.Getenv("TELEGRAM_BOT_TOKEN") + "/sendMessage"
+
+	// Create the message payload
+	message := map[string]interface{}{
+		"chat_id": chatID,
+		"text":    messageText,
+	}
+
+	// Marshal the message payload to JSON
+	jsonMessage, _ := json.Marshal(message)
+
+	// Create a new HTTP request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonMessage))
+	if err != nil {
+		return fmt.Errorf("error creating request: %w", err)
+	}
+
+	// Set the Content-Type header
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request using the HTTP client
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Log the response (can be removed if not needed)
+	log.Printf("Response sent to chat ID %d", chatID)
+
+	return nil
 }
 
 // Menu texts
@@ -113,15 +158,22 @@ func SendLineMenu(replyToken string) error {
 	return nil
 }
 
+// Send a text query to Dialogflow and returns the response
 func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogflowpb.DetectIntentResponse, error) {
+	// Create a background context for the API call
 	ctx := context.Background()
+
+	// Create a new Dialogflow Sessions client
 	client, err := dialogflow.NewSessionsClient(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer client.Close()
+	defer client.Close() // Ensure the client is closed when done
 
+	// Construct the session path for the Dialogflow API
 	sessionPath := fmt.Sprintf("projects/%s/agent/sessions/%s", projectID, sessionID)
+
+	// Create the DetectIntentRequest with the session path and query input
 	req := &dialogflowpb.DetectIntentRequest{
 		Session: sessionPath,
 		QueryInput: &dialogflowpb.QueryInput{
@@ -134,5 +186,6 @@ func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogf
 		},
 	}
 
+	// Send the request and return the response or error
 	return client.DetectIntent(ctx, req)
 }

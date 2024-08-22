@@ -101,7 +101,8 @@ func handleMessage(message *tgbotapi.Message) {
 		var response string
 		if strings.HasPrefix(text, "/") {
 			// Handle commands
-			response, err = handleCommand(message.Chat.ID, text)
+			//response, err = handleCommand(message.Chat.ID, text)
+			response, err = handleCommand(TELEGRAM, message.Chat.ID, text)
 			if err != nil {
 				fmt.Printf("An error occurred: %s \n", err.Error())
 				response = "An error occurred while processing your command."
@@ -114,12 +115,13 @@ func handleMessage(message *tgbotapi.Message) {
 			//response = processMessage(text)
 
 			// Send the message to Dialogflow for processing
-			handleMessageDialogflow(message)
+			handleTGMessageDialogflow(message)
 			return
 		}
 
 		fmt.Printf("Response: '%s'\n", response)
 
+		// Send the response if it's not empty
 		if response != "" {
 			msg := tgbotapi.NewMessage(message.Chat.ID, response)
 			_, err = utils.TgBot.Send(msg)
@@ -130,16 +132,25 @@ func handleMessage(message *tgbotapi.Message) {
 	}
 }
 
-var keywords = []string{
-	"hello",
-	"help",
-	"start",
-	"menu",
-	"scream",
-	"whisper",
+// Handle messages with Dialogflow
+func handleTGMessageDialogflow(message *tgbotapi.Message) {
+	projectID := "testagent-mkyg"
+	sessionID := strconv.FormatInt(message.Chat.ID, 10)
+	languageCode := "en"
+
+	// Send the user’s message to Dialogflow and receives a response.
+	response, err := utils.DetectIntentText(projectID, sessionID, message.Text, languageCode)
+	if err != nil {
+		fmt.Printf("Error detecting intent: %v\n", err)
+		return
+	}
+
+	// Process Dialogflow response and send it
+	handleDialogflowResponse(response, TELEGRAM, message.Chat.ID)
 }
 
 /*
+
 // processes incoming messages from users
 
 	func handleMessage(message *tgbotapi.Message) {
@@ -197,64 +208,6 @@ func processMessage(message string) string {
 	}
 }
 */
-
-// Process commands sent by users and returns the message as a string
-func handleCommand(chatId int64, command string) (string, error) {
-	var message string
-
-	switch command {
-	case "/start":
-		message = "Welcome to the bot!"
-	case "/scream":
-		utils.Screaming = true // Enable screaming mode
-		message = "Scream mode enabled!"
-	case "/whisper":
-		utils.Screaming = false // Disable screaming mode
-		message = "Scream mode disabled!"
-	case "/menu":
-		err := utils.SendMenu(chatId) // Send a menu to the chat
-		return "", err
-	case "/help":
-		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
-	case "/custom":
-		message = "This is a custom response!"
-	default:
-		message = "I don't know that command"
-	}
-
-	// After determining the message, return it along with any error that might have occurred
-	return message, nil
-}
-
-/*func handleCommand(chatId int64, command string) error {
-	var err error
-
-	switch command {
-	case "/start":
-		msg := tgbotapi.NewMessage(chatId, "Welcome to the bot!")
-		_, err = utils.TgBot.Send(msg)
-	case "/scream":
-		utils.Screaming = true // Enable screaming mode
-		msg := tgbotapi.NewMessage(chatId, "Scream mode enabled!")
-		_, err = utils.TgBot.Send(msg)
-	case "/whisper":
-		utils.Screaming = false // Disable screaming mode
-		msg := tgbotapi.NewMessage(chatId, "Scream mode disabled!")
-		_, err = utils.TgBot.Send(msg)
-	case "/menu":
-		err = utils.SendMenu(chatId) // Send a menu to the chat
-	case "/help":
-		msg := tgbotapi.NewMessage(chatId, "Here are some commands you can use: /start, /help, /scream, /whisper, /menu")
-		_, err = utils.TgBot.Send(msg)
-	case "/custom":
-		utils.SendTelegramResponse(chatId, "This is a custom response!") // Send a custom response
-	default:
-		msg := tgbotapi.NewMessage(chatId, "I don't know that command")
-		_, err = utils.TgBot.Send(msg)
-	}
-
-	return err
-}*/
 
 func handleButton(query *tgbotapi.CallbackQuery) {
 	var text string

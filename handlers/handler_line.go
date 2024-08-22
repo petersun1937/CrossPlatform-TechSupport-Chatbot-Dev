@@ -86,7 +86,7 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 				UserID:       userID, // LINE UserID as unique identifier
 				UserName:     userProfile.DisplayName,
 				FirstName:    "", // LINE doesn't provide firstname and lastname
-				LastName:     "", // LINE doesn't provide firstname and lastname
+				LastName:     "",
 				LanguageCode: userProfile.Language,
 			}
 			err = database.DB.Create(&dbUser).Error
@@ -111,22 +111,42 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 			// Handle other types of errors
 			fmt.Printf("Error retrieving user: %s", err.Error())
 		}
-	}
-	if strings.HasPrefix(text, "/") {
-		err := handleLineCommand(event, text)
-		if err != nil {
-			fmt.Printf("An error occurred: %s \n", err.Error())
-		}
-		return
-	}
-	// If not a command, process the message using processLineMessage function
-	/*response := processMessage(text)
-	if _, err := utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(response)).Do(); err != nil {
-		fmt.Printf("An error occurred: %s \n", err.Error())
-	}*/
+	} else {
+		var response string
+		if strings.HasPrefix(text, "/") { // Check if the message is a command by prefix "/"
+			//response, err = handleLineCommand(event, text)
+			response, err = handleCommand(TELEGRAM, event, text)
+			if err != nil {
+				fmt.Printf("An error occurred: %s \n", err.Error())
+				response = "An error occurred while processing your command."
+			}
 
-	// Process the message using Dialogflow
-	handleLineMessageDF(event, message)
+		} else if utils.Screaming && len(text) > 0 {
+			// If screaming mode is on, send the text in uppercase
+			response = strings.ToUpper(text)
+		} else {
+			// If not a command, process the message using processLineMessage function
+			/*response := processMessage(text)
+			if _, err := utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(response)).Do(); err != nil {
+				fmt.Printf("An error occurred: %s \n", err.Error())
+			}*/
+
+			// Process the message using Dialogflow
+			handleLineMessageDF(event, message)
+			return
+		}
+
+		fmt.Printf("Response: '%s'\n", response)
+
+		// Send the response if it's not empty
+		if response != "" {
+			if _, err := utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(response)).Do(); err != nil {
+				fmt.Printf("An error occurred: %s \n", err.Error())
+			}
+		}
+
+	}
+
 }
 
 func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
@@ -143,35 +163,28 @@ func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
 	handleDialogflowResponse(response, LINE, event)
 }
 
-func handleLineCommand(event *linebot.Event, command string) error {
-	var err error
+/*func handleLineCommand(event *linebot.Event, command string) (string, error) {
+	var message string
 
 	switch command {
 	case "/start":
-		if _, err = utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("Welcome to the bot!")).Do(); err != nil {
-			fmt.Print(err)
-		}
+		message = "Welcome to the bot!"
 	case "/scream":
 		utils.Screaming = true // Enable screaming mode
-		if _, err = utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("Scream mode enabled!")).Do(); err != nil {
-			fmt.Print(err)
-		}
+		message = "Scream mode enabled!"
 	case "/whisper":
 		utils.Screaming = false // Disable screaming mode
-		if _, err = utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("Scream mode disabled!")).Do(); err != nil {
-			fmt.Print(err)
-		}
+		message = "Scream mode disabled!"
 	case "/menu":
-		err = utils.SendLineMenu(event.ReplyToken) // Send a menu to the chat
+		err := utils.SendLineMenu(event.ReplyToken) // Send a menu to the chat
+		return "", err
 	case "/help":
-		if _, err = utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("Here are some commands you can use: /start, /help, /scream, /whisper, /menu")).Do(); err != nil {
-			fmt.Print(err)
-		}
+		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
+	case "/custom":
+		message = "This is a custom response!"
 	default:
-		if _, err = utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage("I don't know that command")).Do(); err != nil {
-			fmt.Print(err)
-		}
+		message = "I don't know that command"
 	}
 
-	return err
-}
+	return message, nil
+}*/

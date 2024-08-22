@@ -43,7 +43,6 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	utils.TgBot.Debug = false
 
 	// Initialize Linebot
 	err = utils.InitLineBot(os.Getenv("LINE_CHANNEL_SECRET"), os.Getenv("LINE_CHANNEL_TOKEN"))
@@ -89,34 +88,20 @@ func main() {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	// Create a new update configuration (long polling)
+	// Create a new update configuration with offset of 0
+	// Using 0 means it will start fetching updates from the beginning.
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 60 // timeout for long polling set to 60 s
 
-	// Get updates channel
+	// Get updates channel to start long polling to receive updates.
+	// The channel will be continuously fed with new Update objects from Telegram.
 	updates := utils.TgBot.GetUpdatesChan(u)
 
-	// Start receiving updates (go routine)
+	// Use go routine to continuously process received updates from the updates channel
 	go handlers.ReceiveUpdates(ctx, updates)
 
-	// Wait for a newline symbol, then cancel handling updates (for this to work, run with cmd)
+	// Wait for a newline symbol, then cancel handling updates (for cancel to work, run with cmd)
 	fmt.Println("Bot is running. Press Enter to stop.")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 	cancel()
 }
-
-/*
-   func main() {
-
-   	// Load environment variables from .env file
-
-   	if err := godotenv.Load("configs/.env"); err != nil {
-   		panic("Error loading .env file")
-   	}
-
-   	//dbstr := os.Getenv("DATABASE_URL")
-   	//database.InitPostgresDB(dbstr) // Initialize the database connection (defined in package "DB")
-
-   	server.RunRoutes()
-
-   }*/
