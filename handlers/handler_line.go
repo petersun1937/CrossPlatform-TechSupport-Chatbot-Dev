@@ -58,6 +58,7 @@ func HandleLineWebhook(c *gin.Context) {
 // Process incoming messages from users
 func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 
+	// Get user profile information from Line
 	userProfile, err := utils.LineBot.GetProfile(event.Source.UserID).Do()
 	if err != nil {
 		fmt.Printf("Error fetching user profile: %v\n", err)

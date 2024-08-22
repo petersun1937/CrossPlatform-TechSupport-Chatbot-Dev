@@ -3,7 +3,6 @@ package server
 import (
 	"Tg_chatbot/database"
 	"Tg_chatbot/handlers"
-	"Tg_chatbot/middleware"
 	"fmt"
 	"log"
 	"os"
@@ -15,7 +14,7 @@ import (
 )
 
 func InitRoutes(r *gin.Engine, db *gorm.DB) {
-	// Set up logging to a file
+	// Set up logging to a file (bot.log)
 	file, err := os.OpenFile("bot.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatal(err)
@@ -32,12 +31,12 @@ func InitRoutes(r *gin.Engine, db *gorm.DB) {
 	//r.POST("/login", handlers.Login)
 
 	// Protected routes
-	authorized := r.Group("/api")
+	/*authorized := r.Group("/api")
 	authorized.Use(middleware.JWTMiddleware())
 	{
 		authorized.POST("/message", handlers.HandleCustomMessage)
 		// Add other protected routes here
-	}
+	}*/
 
 	fmt.Println("Server started")
 	r.Run(":8080")
