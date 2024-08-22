@@ -6,12 +6,15 @@ import (
 	"Tg_chatbot/utils"
 	"Tg_chatbot/utils/token"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"gorm.io/gorm"
 )
 
 // ReceiveUpdates receives updates from Telegram API and handles them
@@ -41,7 +44,6 @@ func HandleTelegramUpdate(update tgbotapi.Update) {
 }
 
 // Processes incoming messages from users
-
 func handleMessage(message *tgbotapi.Message) {
 	user := message.From
 	text := message.Text
@@ -50,35 +52,48 @@ func handleMessage(message *tgbotapi.Message) {
 		return
 	}
 
+	// Convert user.ID from int64 to string
+	userIDStr := strconv.FormatInt(user.ID, 10)
+
+	fmt.Printf("User ID: %s \n", userIDStr)
+
 	// Check if the user exists in the database
 	var dbUser models.User
-	err := database.DB.Where("user_id = ?", user.ID).First(&dbUser).Error
+	err := database.DB.Where("user_id = ? AND deleted_at IS NULL", userIDStr).First(&dbUser).Error
 
 	// If the user does not exist, create a new user record
 	if err != nil {
-		dbUser = models.User{
-			UserID:       user.ID,
-			FirstName:    user.FirstName,
-			LastName:     user.LastName,
-			UserName:     user.UserName,
-			LanguageCode: user.LanguageCode,
-		}
-		err = database.DB.Create(&dbUser).Error
-		if err != nil {
-			fmt.Printf("Error creating user: %s", err.Error())
-			return
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// User does not exist, create a new user record
+			dbUser = models.User{
+				UserID:       userIDStr,
+				FirstName:    user.FirstName,
+				LastName:     user.LastName,
+				UserName:     user.UserName,
+				LanguageCode: user.LanguageCode,
+			}
+			err = database.DB.Create(&dbUser).Error
+			if err != nil {
+				fmt.Printf("Error creating user: %s", err.Error())
+				return
+			}
+
+			// Generate a JWT token for the new user
+			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
+			if err != nil {
+				fmt.Printf("Error generating JWT: %s", err.Error())
+				return
+			}
+
+			// Send the token to the user
+			msg := tgbotapi.NewMessage(message.Chat.ID, "Welcome! Your access token is: "+token)
+			utils.TgBot.Send(msg)
+		} else {
+			// Handle other types of errors
+			fmt.Printf("Error retrieving user: %s", err.Error())
 		}
 
-		// Generate a JWT token for the new user
-		token, err := token.GenerateToken(int(user.ID), "user") // Convert int64 to int
-		if err != nil {
-			fmt.Printf("Error generating JWT: %s", err.Error())
-			return
-		}
-
-		// Send the token to the user
-		msg := tgbotapi.NewMessage(message.Chat.ID, "Welcome! Your access token is: "+token)
-		utils.TgBot.Send(msg)
 	} else {
 		fmt.Printf("Received message from %s: %s \n", user.FirstName, text)
 		fmt.Printf("Chat ID: %d \n", message.Chat.ID)

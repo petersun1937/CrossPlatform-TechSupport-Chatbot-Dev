@@ -12,9 +12,9 @@ import (
 )
 
 // Generates a JWT token for the user
-func GenerateToken(user_id int, role string) (string, error) {
+func GenerateToken(userID string, role string) (string, error) {
 	// Retrieves the token lifespan from environment variables (.env) and converts it to int
-	token_lifespan, err := strconv.Atoi(os.Getenv("TOKEN_HOUR_LIFESPAN"))
+	tokenLifespan, err := strconv.Atoi(os.Getenv("TOKEN_HOUR_LIFESPAN"))
 	if err != nil {
 		return "", err
 	}
@@ -22,14 +22,14 @@ func GenerateToken(user_id int, role string) (string, error) {
 	// Defines the claims for the JWT token
 	claims := jwt.MapClaims{}
 	claims["authorized"] = true
-	claims["user_id"] = user_id
-	//claims["role"] = role
-	claims["exp"] = time.Now().Add(time.Hour * time.Duration(token_lifespan)).Unix() // Sets expiration time
+	claims["user_id"] = userID
+	claims["role"] = role                                                           // Assuming you want to include role information
+	claims["exp"] = time.Now().Add(time.Hour * time.Duration(tokenLifespan)).Unix() // Sets expiration time
 
 	// Creates a new JWT token with the specified claims and signing method (HS256)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// Signs the token with the api secret key (defined in .env) and returns it
+	// Signs the token with the API secret key (defined in .env) and returns it
 	return token.SignedString([]byte(os.Getenv("API_SECRET")))
 }
 

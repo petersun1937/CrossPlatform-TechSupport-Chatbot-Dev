@@ -30,7 +30,7 @@ func (m *MockDB) First(out interface{}, where ...interface{}) error {
 	case *models.User:
 		*v = models.User{
 			Model:        gorm.Model{ID: 1},
-			UserID:       12345, // Mock UserID
+			UserID:       "12345", // Mock UserID
 			FirstName:    "Peter",
 			LastName:     "Sun",
 			UserName:     "testuser",

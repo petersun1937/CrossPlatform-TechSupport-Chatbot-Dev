@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"Tg_chatbot/database"
+	"Tg_chatbot/models"
 	"Tg_chatbot/utils"
+	"Tg_chatbot/utils/token"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/line/line-bot-sdk-go/linebot"
+	"gorm.io/gorm"
 )
 
 // HandleLineWebhook handles incoming POST requests from the Line platform
@@ -52,12 +57,60 @@ func HandleLineWebhook(c *gin.Context) {
 
 // Process incoming messages from users
 func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
+
+	userProfile, err := utils.LineBot.GetProfile(event.Source.UserID).Do()
+	if err != nil {
+		fmt.Printf("Error fetching user profile: %v\n", err)
+		return
+	}
+
+	userID := event.Source.UserID
 	text := message.Text
+
+	fmt.Printf("User ID: %s \n", userID)
+
+	//userIDInt, _ := strconv.ParseInt(userID, 10, 64)
 
 	// Log the received message for debugging
 	fmt.Printf("Received message: %s \n", text)
 
-	// Process commands if the message starts with "/"
+	// Check if the user exists in the database
+	var dbUser models.User
+	err = database.DB.Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+
+	// If the user does not exist, create a new user record
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dbUser = models.User{
+				UserID:       userID, // LINE UserID as unique identifier
+				UserName:     userProfile.DisplayName,
+				FirstName:    "", // LINE doesn't provide firstname and lastname
+				LastName:     "", // LINE doesn't provide firstname and lastname
+				LanguageCode: userProfile.Language,
+			}
+			err = database.DB.Create(&dbUser).Error
+			if err != nil {
+				fmt.Printf("Error creating user: %s", err.Error())
+				return
+			}
+
+			// Generate a JWT token for the new user
+			token, err := token.GenerateToken(userID, "user") // Convert userID to int if needed
+			if err != nil {
+				fmt.Printf("Error generating JWT: %s", err.Error())
+				return
+			}
+
+			// Send the token to the user
+			msg := linebot.NewTextMessage("Welcome! Your access token is: " + token)
+			if _, err := utils.LineBot.ReplyMessage(event.ReplyToken, msg).Do(); err != nil {
+				fmt.Printf("Error sending token message: %s \n", err.Error())
+			}
+		} else {
+			// Handle other types of errors
+			fmt.Printf("Error retrieving user: %s", err.Error())
+		}
+	}
 	if strings.HasPrefix(text, "/") {
 		err := handleLineCommand(event, text)
 		if err != nil {
@@ -65,14 +118,13 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 		}
 		return
 	}
-
 	// If not a command, process the message using processLineMessage function
 	/*response := processMessage(text)
 	if _, err := utils.LineBot.ReplyMessage(event.ReplyToken, linebot.NewTextMessage(response)).Do(); err != nil {
 		fmt.Printf("An error occurred: %s \n", err.Error())
 	}*/
 
-	// Use Dialogflow for message processing
+	// Process the message using Dialogflow
 	handleLineMessageDF(event, message)
 }
 
