@@ -23,8 +23,8 @@ func ReceiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
 	// The bot's API sends these updates to the application, and the function processes them by handling the updates.
 
 	for { // continuous loop to check for updates
-		select {
-		case <-ctx.Done(): // If context has been cancelled
+		select { // select statement waits for one of its cases to be ready, then executes the first case that becomes available.
+		case <-ctx.Done(): // if context has been cancelled:
 			fmt.Println("Goroutine: Received cancel signal, stopping...")
 			// exit the loop and stop the go routine
 			return
@@ -37,14 +37,14 @@ func ReceiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
 // HandleTelegramUpdate processes incoming updates from Telegram
 func HandleTelegramUpdate(update tgbotapi.Update) {
 	if update.Message != nil {
-		handleMessage(update.Message)
-	} else if update.CallbackQuery != nil {
-		handleButton(update.CallbackQuery)
+		handleTgMessage(update.Message) // handle user input message
+	} else if update.CallbackQuery != nil { // a callback query is typically generated when a user interacts with an inline button within a message.
+		handleButton(update.CallbackQuery) // handle button press activated by sendMenu
 	}
 }
 
 // Processes incoming messages from users
-func handleMessage(message *tgbotapi.Message) {
+func handleTgMessage(message *tgbotapi.Message) {
 	user := message.From
 	text := message.Text
 
@@ -107,7 +107,7 @@ func handleMessage(message *tgbotapi.Message) {
 				fmt.Printf("An error occurred: %s \n", err.Error())
 				response = "An error occurred while processing your command."
 			}
-		} else if utils.Screaming && len(text) > 0 {
+		} else if screaming && len(text) > 0 {
 			// If screaming mode is on, send the text in uppercase
 			response = strings.ToUpper(text)
 		} else {
@@ -115,7 +115,8 @@ func handleMessage(message *tgbotapi.Message) {
 			//response = processMessage(text)
 
 			// Send the message to Dialogflow for processing
-			handleTGMessageDialogflow(message)
+			handleMessageDialogflow(TELEGRAM, message.Chat.ID, text)
+			//handleTGMessageDialogflow(message)
 			return
 		}
 
@@ -133,7 +134,7 @@ func handleMessage(message *tgbotapi.Message) {
 }
 
 // Handle messages with Dialogflow
-func handleTGMessageDialogflow(message *tgbotapi.Message) {
+/*func handleTGMessageDialogflow(message *tgbotapi.Message) {
 	projectID := "testagent-mkyg"
 	sessionID := strconv.FormatInt(message.Chat.ID, 10)
 	languageCode := "en"
@@ -147,67 +148,7 @@ func handleTGMessageDialogflow(message *tgbotapi.Message) {
 
 	// Process Dialogflow response and send it
 	handleDialogflowResponse(response, TELEGRAM, message.Chat.ID)
-}
-
-/*
-
-// processes incoming messages from users
-
-	func handleMessage(message *tgbotapi.Message) {
-		user := message.From
-		text := message.Text
-
-		if user == nil {
-			return
-		}
-
-		fmt.Printf("Received message from %s: %s", user.FirstName, text)
-		fmt.Printf("Chat ID: %d", message.Chat.ID) // Log the Chat ID
-
-		var err error
-		if strings.HasPrefix(text, "/") {
-			// Handle commands
-			err = handleCommand(message.Chat.ID, text)
-		} else if utils.Screaming && len(text) > 0 {
-			// If screaming mode is on, send the text in uppercase
-			msg := tgbotapi.NewMessage(message.Chat.ID, strings.ToUpper(text))
-			msg.Entities = message.Entities
-			_, err = utils.TgBot.Send(msg)
-		} else {
-			// Process the message using processMessage function
-			response := processMessage(text)
-			msg := tgbotapi.NewMessage(message.Chat.ID, response)
-			_, err = utils.TgBot.Send(msg)
-
-			// Copy the message without the sender's name
-			//msg := tgbotapi.NewCopyMessage(message.Chat.ID, message.Chat.ID, message.MessageID)
-			//_, err = utils.TgBot.CopyMessage(msg)
-		}
-
-		if err != nil {
-			fmt.Printf("An error occurred: %s", err.Error())
-		}
-	}
-*/
-/*
-func processMessage(message string) string {
-	message = strings.ToLower(message)
-	switch {
-	case strings.Contains(message, "hello"):
-		return "Hello! How may I help you?"
-	case strings.Contains(message, "help"):
-		return "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
-	case strings.Contains(message, "scream"):
-		utils.Screaming = true
-		return "Scream mode enabled!"
-	case strings.Contains(message, "whisper"):
-		utils.Screaming = false
-		return "Scream mode disabled!"
-	default:
-		return "I'm sorry, I didn't understand that. Type /help to see what I can do."
-	}
-}
-*/
+}*/
 
 func handleButton(query *tgbotapi.CallbackQuery) {
 	var text string
@@ -228,71 +169,6 @@ func handleButton(query *tgbotapi.CallbackQuery) {
 	msg.ParseMode = tgbotapi.ModeHTML
 	utils.TgBot.Send(msg)
 }
-
-/*
-// handles incoming updates from the Telegram webhook
-func HandleTelegramWebhook(c *gin.Context) {
-	var update models.TelegramUpdate
-	if err := c.BindJSON(&update); err != nil {
-		fmt.Printf("Error parsing request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	// Extract user information from the update
-	user := update.Message.From
-
-	// Check if the user exists in the database
-	var dbUser models.User
-	err := database.DB.Where("user_id = ?", user.ID).First(&dbUser).Error
-
-	if err != nil {
-		// User doesn't exist, create a new user
-		dbUser = models.User{
-			UserID:       user.ID,
-			FirstName:    user.FirstName,
-			LastName:     user.LastName,
-			UserName:     user.UserName,
-			LanguageCode: user.LanguageCode,
-		}
-		err = database.DB.Create(&dbUser).Error
-		if err != nil {
-			fmt.Printf("Error creating user: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating user"})
-			return
-		}
-
-		// Generate a JWT token for the new user
-		token, err := token.GenerateToken(int(user.ID), "user")
-		if err != nil {
-			fmt.Printf("Error generating JWT: %s", err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error generating token"})
-			return
-		}
-
-		// Send the token to the user via Telegram
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Welcome! Your access token is: "+token)
-		_, err = utils.TgBot.Send(msg)
-		if err != nil {
-			fmt.Printf("Error sending token to user: %s", err.Error())
-		}
-	}
-
-	// Process the message
-	HandleTelegramUpdate(tgbotapi.Update{
-		UpdateID: update.UpdateID,
-		Message: &tgbotapi.Message{
-			MessageID: update.Message.MessageID,
-			From:      update.Message.From,
-			Chat:      update.Message.Chat,
-			Date:      update.Message.Date,
-			Text:      update.Message.Text,
-		},
-	})
-
-	c.JSON(http.StatusOK, gin.H{"status": "ok"})
-}
-*/
 
 // processes custom messages
 

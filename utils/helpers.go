@@ -15,9 +15,9 @@ import (
 	"github.com/line/line-bot-sdk-go/linebot"
 )
 
-// Global variables to hold the bot instance and screaming state
+// Global variables to hold the bot instances for TG and LINE
 var TgBot *tgbotapi.BotAPI
-var Screaming bool
+var LineBot *linebot.Client
 
 // Telegram API URL
 const telegramAPIURL = "https://api.telegram.org/bot"
@@ -62,12 +62,18 @@ func SendTelegramResponse(chatID int64, response string) {
 
 // Send a message via LINE
 func SendLineMessage(replyToken string, messageText string) error {
+	// Create the message payload
 	replyMessage := linebot.NewTextMessage(messageText)
+
+	// Send the message
 	_, err := LineBot.ReplyMessage(replyToken, replyMessage).Do()
-	return err
+	if err != nil {
+		return fmt.Errorf("error sending LINE message: %w", err)
+	}
+	return nil
 }
 
-// Send a message via Telegram
+// Send a message via Telegram (TG requires manual construction of an HTTP request)
 func SendTelegramMessage(chatID int64, messageText string) error {
 	// Construct the URL for the Telegram API request
 	url := telegramAPIURL + os.Getenv("TELEGRAM_BOT_TOKEN") + "/sendMessage"
@@ -141,17 +147,14 @@ func SendMenu(chatId int64) error {
 	return err
 }
 
-// For Line bot
-var LineBot *linebot.Client
-
-func InitLineBot(channelSecret, channelToken string) error {
+/*func InitLineBot(channelSecret, channelToken string) error {
 	bot, err := linebot.New(channelSecret, channelToken)
 	if err != nil {
 		return err
 	}
 	LineBot = bot
 	return nil
-}
+}*/
 
 func SendLineMenu(replyToken string) error {
 	// ***

@@ -14,6 +14,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/joho/godotenv"
+	"github.com/line/line-bot-sdk-go/linebot"
 )
 
 func main() {
@@ -37,17 +38,16 @@ func main() {
 	}*/
 
 	// Initialize Telegram Bot
-	utils.TgBot, err = tgbotapi.NewBotAPI(botToken) // creates new BotAPI instance using the token
-	// utils.Bot: global variable (defined in the utils package) that holds the reference to the bot instance.
-
+	utils.TgBot, err = tgbotapi.NewBotAPI(botToken) // create new BotAPI instance using the token
+	// utils.TgBot: global variable (defined in the utils package) that holds the reference to the bot instance.
 	if err != nil {
 		log.Panic(err)
 	}
 
 	// Initialize Linebot
-	err = utils.InitLineBot(os.Getenv("LINE_CHANNEL_SECRET"), os.Getenv("LINE_CHANNEL_TOKEN"))
+	utils.LineBot, err = linebot.New(os.Getenv("LINE_CHANNEL_SECRET"), os.Getenv("LINE_CHANNEL_TOKEN")) // create new BotAPI instance using the channel token and secret
 	if err != nil {
-		log.Fatal("Error initializing Linebot:", err)
+		log.Panic(err)
 	}
 
 	// Set webhook URL

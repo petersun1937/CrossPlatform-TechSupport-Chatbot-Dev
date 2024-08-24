@@ -121,7 +121,7 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 				response = "An error occurred while processing your command."
 			}
 
-		} else if utils.Screaming && len(text) > 0 {
+		} else if screaming && len(text) > 0 {
 			// If screaming mode is on, send the text in uppercase
 			response = strings.ToUpper(text)
 		} else {
@@ -132,7 +132,8 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 			}*/
 
 			// Process the message using Dialogflow
-			handleLineMessageDF(event, message)
+			handleMessageDialogflow(LINE, event, text)
+			//handleLineMessageDF(event, message)
 			return
 		}
 
@@ -149,7 +150,7 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 
 }
 
-func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
+/*func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
 	projectID := "testagent-mkyg"    // dialogflow project id
 	sessionID := event.Source.UserID // Use user ID as session ID
 	languageCode := "en"
@@ -161,7 +162,7 @@ func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
 	}
 
 	handleDialogflowResponse(response, LINE, event)
-}
+}*/
 
 /*func handleLineCommand(event *linebot.Event, command string) (string, error) {
 	var message string

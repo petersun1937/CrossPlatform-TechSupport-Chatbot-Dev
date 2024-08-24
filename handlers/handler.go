@@ -4,9 +4,11 @@ import (
 	"Tg_chatbot/utils"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/line/line-bot-sdk-go/linebot"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
@@ -17,6 +19,9 @@ const (
 	LINE Platform = iota
 	TELEGRAM
 )
+
+// For screaming state
+var screaming bool
 
 var keywords = []string{
 	"hello",
@@ -46,7 +51,7 @@ func processMessage(message string) string {
 		case "menu":
 			return "Here's the menu: ..."
 		case "scream":
-			utils.Screaming = true
+			screaming = true
 			return "Scream mode enabled! (Type /whisper to disable)"
 		/*case "whisper":
 		utils.Screaming = false
@@ -68,10 +73,10 @@ func handleCommand(platform Platform, identifier interface{}, command string) (s
 	case "/start":
 		message = "Welcome to the bot!"
 	case "/scream":
-		utils.Screaming = true // Enable screaming mode
+		screaming = true // Enable screaming mode
 		message = "Scream mode enabled!"
 	case "/whisper":
-		utils.Screaming = false // Disable screaming mode
+		screaming = false // Disable screaming mode
 		message = "Scream mode disabled!"
 	case "/menu":
 		// Handle menu sending based on platform
@@ -102,6 +107,53 @@ func handleCommand(platform Platform, identifier interface{}, command string) (s
 	}
 
 	return message, nil
+}
+
+// handleMessageDialogflow handles messages from both LINE and Telegram
+func handleMessageDialogflow(platform Platform, identifier interface{}, text string) {
+	projectID := "testagent-mkyg"
+	var sessionID string
+	var languageCode = "en"
+
+	// Determine sessionID based on platform
+	switch platform {
+	case LINE:
+		if event, ok := identifier.(*linebot.Event); ok {
+			sessionID = event.Source.UserID
+		} else {
+			fmt.Println("Invalid LINE event identifier")
+			return
+		}
+	case TELEGRAM:
+		if message, ok := identifier.(*tgbotapi.Message); ok {
+			sessionID = strconv.FormatInt(message.Chat.ID, 10)
+		} else {
+			fmt.Println("Invalid Telegram message identifier")
+			return
+		}
+	default:
+		fmt.Println("Unsupported platform")
+		return
+	}
+
+	// Send the message to Dialogflow and receive a response
+	response, err := utils.DetectIntentText(projectID, sessionID, text, languageCode)
+	if err != nil {
+		fmt.Printf("Error detecting intent: %v\n", err)
+		return
+	}
+
+	// Process Dialogflow response and send it
+	switch platform {
+	case LINE:
+		if event, ok := identifier.(*linebot.Event); ok {
+			handleDialogflowResponse(response, LINE, event)
+		}
+	case TELEGRAM:
+		if message, ok := identifier.(*tgbotapi.Message); ok {
+			handleDialogflowResponse(response, TELEGRAM, message.Chat.ID)
+		}
+	}
 }
 
 // Handle responses from Dialogflow
