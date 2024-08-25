@@ -16,7 +16,7 @@ import (
 type Platform int
 
 const (
-	LINE Platform = iota
+	LINE Platform = iota // iota is special identifier that starts at 0 and increments by 1 with each constant declaration in the same const block.
 	TELEGRAM
 )
 
@@ -118,8 +118,8 @@ func handleMessageDialogflow(platform Platform, identifier interface{}, text str
 	// Determine sessionID based on platform
 	switch platform {
 	case LINE:
-		if event, ok := identifier.(*linebot.Event); ok {
-			sessionID = event.Source.UserID
+		if event, ok := identifier.(*linebot.Event); ok { // check if identifier is the same type as *linebot.Event
+			sessionID = event.Source.UserID // sessionID to keep track of conversation / user
 		} else {
 			fmt.Println("Invalid LINE event identifier")
 			return

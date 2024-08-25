@@ -83,7 +83,6 @@ func main() {
 	go server.RunRoutes()
 
 	// Create a new cancellable background context
-	// This provides a context (ctx) that can be passed around to different functions or goroutines.
 	// context.Background() is often used as the root context for new goroutines when no specific request or context is available.
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)

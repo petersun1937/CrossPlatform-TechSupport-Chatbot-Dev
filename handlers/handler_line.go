@@ -17,7 +17,7 @@ import (
 
 // HandleLineWebhook handles incoming POST requests from the Line platform
 func HandleLineWebhook(c *gin.Context) {
-	// Parse the incoming request from the Line platform and extract the events
+	// Parse the incoming webhook request from LINE and extract the events
 	events, err := utils.LineBot.ParseRequest(c.Request)
 	if err != nil {
 		// If the request has an invalid signature, return a 400 Bad Request error
@@ -34,7 +34,7 @@ func HandleLineWebhook(c *gin.Context) {
 	for _, event := range events {
 		// Check if the event is a message event
 		if event.Type == linebot.EventTypeMessage {
-			// Switch on the type of message (could be text, image, video, audio etc., only support text now)
+			// Switch on the type of message (could be text, image, video, audio etc., only support text for now)
 			switch message := event.Message.(type) {
 			// If the message is a text message, process it using handleLineMessage
 			case *linebot.TextMessage:
@@ -111,7 +111,7 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 			// Handle other types of errors
 			fmt.Printf("Error retrieving user: %s", err.Error())
 		}
-	} else {
+	} else { // if no error
 		var response string
 		if strings.HasPrefix(text, "/") { // Check if the message is a command by prefix "/"
 			//response, err = handleLineCommand(event, text)
@@ -149,43 +149,3 @@ func handleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 	}
 
 }
-
-/*func handleLineMessageDF(event *linebot.Event, message *linebot.TextMessage) {
-	projectID := "testagent-mkyg"    // dialogflow project id
-	sessionID := event.Source.UserID // Use user ID as session ID
-	languageCode := "en"
-
-	response, err := utils.DetectIntentText(projectID, sessionID, message.Text, languageCode)
-	if err != nil {
-		fmt.Printf("Error detecting intent: %v\n", err)
-		return
-	}
-
-	handleDialogflowResponse(response, LINE, event)
-}*/
-
-/*func handleLineCommand(event *linebot.Event, command string) (string, error) {
-	var message string
-
-	switch command {
-	case "/start":
-		message = "Welcome to the bot!"
-	case "/scream":
-		utils.Screaming = true // Enable screaming mode
-		message = "Scream mode enabled!"
-	case "/whisper":
-		utils.Screaming = false // Disable screaming mode
-		message = "Scream mode disabled!"
-	case "/menu":
-		err := utils.SendLineMenu(event.ReplyToken) // Send a menu to the chat
-		return "", err
-	case "/help":
-		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
-	case "/custom":
-		message = "This is a custom response!"
-	default:
-		message = "I don't know that command"
-	}
-
-	return message, nil
-}*/

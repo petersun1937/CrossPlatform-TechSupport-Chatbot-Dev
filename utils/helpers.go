@@ -189,6 +189,6 @@ func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogf
 		},
 	}
 
-	// Send the request and return the response or error
+	// Send the request to Dialogflow API and return the response or error
 	return client.DetectIntent(ctx, req)
 }
