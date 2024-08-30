@@ -3,30 +3,67 @@ package database
 import (
 	"fmt"
 
+	config "Tg_chatbot/configs"
 	"Tg_chatbot/models"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
+//var DB *gorm.DB
 
-// Define database interface (for DI)
-type Database interface {
-	Create(value interface{}) error
-	Where(query interface{}, args ...interface{}) Database
-	First(out interface{}, where ...interface{}) error
-	Save(value interface{}) error
-	Model(value interface{}) Database
-	Take(out interface{}, where ...interface{}) error
-	Delete(value interface{}, where ...interface{}) error
-	Find(out interface{}, where ...interface{}) error
-	Updates(values interface{}) error
+// Database2 interface defines the methods for database operations
+type Database2 interface {
+	Init() error
+	GetDB() *gorm.DB
+}
+
+// database2 struct holds the connection details and the gorm DB instance
+type database2 struct {
+	conf *config.Config
+	//user string
+	//pwd  string
+	db *gorm.DB
+}
+
+// NewDatabase2 creates a new instance of database2 with the provided config
+func NewDatabase2(config *config.Config) Database2 {
+	return &database2{
+		conf: config,
+		//user: config.GetDBUser(),
+		//pwd:  config.GetDBPwd(),
+	}
+}
+
+// Init initializes the database connection and performs migrations
+func (db2 *database2) Init() error {
+	//dbstr := fmt.Sprintf("host=localhost user=%s password=%s dbname=chatbot port=5432 sslmode=disable", db2.user, db2.pwd)
+	dbstr := db2.conf.GetDBString()
+
+	db, err := gorm.Open(postgres.Open(dbstr), &gorm.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	// Auto migrate the User schema
+	if err := db.AutoMigrate(&models.User{}); err != nil {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	// Assign the initialized database connection to the db field
+	db2.db = db
+	fmt.Println("Database connected!")
+
+	return nil
+}
+
+// GetDB returns the gorm DB instance
+func (db2 *database2) GetDB() *gorm.DB {
+	return db2.db
 }
 
 // Initialize the database connection (Postgres)
-func InitPostgresDB(dbstr string) {
+/*func InitPostgresDB(dbstr string) {
 	if DB != nil {
 		return // Already initialized
 	}
@@ -50,10 +87,10 @@ func InitPostgresDB(dbstr string) {
 	// Assign the database connection to a global variable
 	DB = db
 	fmt.Println("Database connected!")
-}
+}*/
 
-var Client *mongo.Client
-var ItemCollection *mongo.Collection
+//var Client *mongo.Client
+//var ItemCollection *mongo.Collection
 
 // Initialize the database connection (MongoDB)
 /*

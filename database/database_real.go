@@ -1,9 +1,7 @@
 package database
 
-import "gorm.io/gorm"
-
 // GORM/real implementation of DB operations
-type GormDB struct {
+/*type GormDB struct {
 	DB *gorm.DB
 }
 
@@ -42,4 +40,4 @@ func (g *GormDB) Find(out interface{}, where ...interface{}) error {
 
 func (g *GormDB) Updates(values interface{}) error {
 	return g.DB.Updates(values).Error
-}
+}*/

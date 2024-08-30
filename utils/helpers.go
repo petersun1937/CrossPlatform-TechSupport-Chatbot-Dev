@@ -1,165 +1,16 @@
 package utils
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
-	"os"
 
 	dialogflow "cloud.google.com/go/dialogflow/apiv2"
 	dialogflowpb "cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/line/line-bot-sdk-go/linebot"
 )
 
 // Global variables to hold the bot instances for TG and LINE
-var TgBot *tgbotapi.BotAPI
-var LineBot *linebot.Client
-
-// Telegram API URL
-const telegramAPIURL = "https://api.telegram.org/bot"
-
-// SendTelegramResponse sends a response to a Telegram chat
-/*
-func SendTelegramResponse(chatID int64, response string) {
-	// Construct the URL for the Telegram API request
-	url := telegramAPIURL + os.Getenv("TELEGRAM_BOT_TOKEN") + "/sendMessage"
-
-	// Create the message payload
-	message := map[string]interface{}{
-		"chat_id": chatID,
-		"text":    response,
-	}
-
-	// Marshal the message payload to JSON
-	jsonMessage, _ := json.Marshal(message)
-
-	// Create a new HTTP request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonMessage))
-	if err != nil {
-		log.Printf("Error creating request: %v", err)
-		return
-	}
-
-	// Set the Content-Type header
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send the request using the HTTP client
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Printf("Error sending response: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// Log the response
-	log.Printf("Response sent to chat ID %d", chatID)
-}*/
-
-// Send a message via LINE
-func SendLineMessage(replyToken string, messageText string) error {
-	// Create the message payload
-	replyMessage := linebot.NewTextMessage(messageText)
-
-	// Send the message
-	_, err := LineBot.ReplyMessage(replyToken, replyMessage).Do()
-	if err != nil {
-		return fmt.Errorf("error sending LINE message: %w", err)
-	}
-	return nil
-}
-
-// Send a message via Telegram (TG requires manual construction of an HTTP request)
-func SendTelegramMessage(chatID int64, messageText string) error {
-	// Construct the URL for the Telegram API request
-	url := telegramAPIURL + os.Getenv("TELEGRAM_BOT_TOKEN") + "/sendMessage"
-
-	// Create the message payload
-	message := map[string]interface{}{
-		"chat_id": chatID,
-		"text":    messageText,
-	}
-
-	// Marshal the message payload to JSON
-	jsonMessage, _ := json.Marshal(message)
-
-	// Create a new HTTP request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonMessage))
-	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
-	}
-
-	// Set the Content-Type header
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send the request using the HTTP client
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("error sending response: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Log the response (can be removed if not needed)
-	log.Printf("Response sent to chat ID %d", chatID)
-
-	return nil
-}
-
-// Menu texts
-var (
-	FirstMenu  = "<b>Menu 1</b>\n\nA beautiful menu with a shiny inline button."
-	SecondMenu = "<b>Menu 2</b>\n\nA better menu with even more shiny inline buttons."
-
-	// Button texts
-	NextButton     = "Next"
-	BackButton     = "Back"
-	TutorialButton = "Tutorial"
-
-	// Keyboard layout for the first menu. One button, one row
-	FirstMenuMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(NextButton, NextButton),
-		),
-	)
-
-	// Keyboard layout for the second menu. Two buttons, one per row
-	SecondMenuMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(BackButton, BackButton),
-		),
-		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL(TutorialButton, "https://core.telegram.org/bots/api"),
-		),
-	)
-)
-
-// SendMenu sends a menu to the chat
-func SendMenu(chatId int64) error {
-	msg := tgbotapi.NewMessage(chatId, FirstMenu)
-	msg.ParseMode = tgbotapi.ModeHTML
-	msg.ReplyMarkup = FirstMenuMarkup
-	_, err := TgBot.Send(msg)
-	return err
-}
-
-/*func InitLineBot(channelSecret, channelToken string) error {
-	bot, err := linebot.New(channelSecret, channelToken)
-	if err != nil {
-		return err
-	}
-	LineBot = bot
-	return nil
-}*/
-
-func SendLineMenu(replyToken string) error {
-	// ***
-	return nil
-}
+//var TgBot *tgbotapi.BotAPI
+//var LineBot *linebot.Client
 
 // Send a text query to Dialogflow and returns the response
 func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogflowpb.DetectIntentResponse, error) {
@@ -189,6 +40,6 @@ func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogf
 		},
 	}
 
-	// Send the request to Dialogflow API and return the response or error
+	// Send the request and return the response or error
 	return client.DetectIntent(ctx, req)
 }
