@@ -14,21 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type App struct {
-	Config  *config.Config
-	Service *service.Service
-	Router  *gin.Engine
-}
-
-func NewApp(conf *config.Config, srv *service.Service) *App {
-	return &App{
-		Config:  conf,
-		Service: srv,
-		Router:  gin.Default(),
-	}
-}
-
-func InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Service) {
+func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Service) {
 	// Set up logging to a file (bot.log)
 	file, err := os.OpenFile("bot.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
@@ -42,17 +28,17 @@ func InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Service) {
 	}*/
 
 	// Middleware to log requests
-	r.Use(gin.Logger())
-	r.Use(gin.Recovery())
+	app.Router.Use(gin.Logger())
+	app.Router.Use(gin.Recovery())
 
 	// Define routes
-	r.POST("/webhook", handlers.HandleLineWebhook)
+	//r.POST("/webhook", handlers.HandleLineWebhook)
 	/*r.POST("/webhook", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})*/
-	/*r.POST("/webhook", func(c *gin.Context) {
-		handlers.HandleLineWebhook(c, lineBot)
-	})*/
+	app.Router.POST("/webhook", func(c *gin.Context) {
+		handlers.HandleLineWebhook(c, app.LineBot)
+	})
 
 	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
 	//r.POST("/login", handlers.Login)
@@ -70,7 +56,7 @@ func InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Service) {
 	//r.Run(":8080")
 }
 
-func RunRoutes(conf *config.Config, svc *service.Service) {
+func (app *App) RunRoutes(conf *config.Config, svc *service.Service) {
 
 	cfg := config.ServerConfig{
 		Host:    os.Getenv("HOST"),
@@ -92,7 +78,7 @@ func RunRoutes(conf *config.Config, svc *service.Service) {
 	//fmt.Println("Starting the server on port " + strconv.Itoa(cfg.Port))
 	svr := New(cfg, svc, conf)
 	//svr := New(cfg)
-	if err := svr.Start(); err != nil {
+	if err := svr.Start(app); err != nil {
 		log.Fatal(err)
 	}
 

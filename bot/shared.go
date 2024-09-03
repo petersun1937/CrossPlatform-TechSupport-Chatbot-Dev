@@ -254,8 +254,8 @@ func (b *lineBot) sendResponse(identifier interface{}, response string) error {
 }
 
 func (b *tgBot) sendResponse(identifier interface{}, response string) error {
-	if chatID, ok := identifier.(int64); ok { // Assertion to check if identifier is of type int64
-		return b.sendTelegramMessage(chatID, response)
+	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
+		return b.sendTelegramMessage(message.Chat.ID, response)
 	} else {
 		return fmt.Errorf("invalid identifier for Telegram platform")
 	}

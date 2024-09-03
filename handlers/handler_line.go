@@ -2,27 +2,14 @@ package handlers
 
 import (
 	"Tg_chatbot/bot"
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/service"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/line/line-bot-sdk-go/linebot"
 )
 
-var lineBot bot.LineBot
-
-func InitLineBot(conf *config.Config, srv *service.Service) {
-	var err error
-	lineBot, err = bot.NewLineBot(conf, srv)
-	if err != nil {
-		log.Fatal("Failed to initialize LINE bot:", err)
-	}
-}
-
 // HandleLineWebhook handles incoming POST requests from the Line platform
-func HandleLineWebhook(c *gin.Context) {
+func HandleLineWebhook(c *gin.Context, lineBot bot.LineBot) {
 	// Parse the incoming request from the Line platform and extract the events
 	events, err := lineBot.ParseRequest(c.Request)
 	if err != nil {
@@ -40,7 +27,7 @@ func HandleLineWebhook(c *gin.Context) {
 	for _, event := range events {
 		// Check if the event is a message event
 		if event.Type == linebot.EventTypeMessage {
-			// Switch on the type of message (could be text, image, video, audio etc., only support text now)
+			// Switch on the type of message (could be text, image, video, audio etc., only support text for now)
 			switch message := event.Message.(type) {
 			// If the message is a text message, process it using handleLineMessage
 			case *linebot.TextMessage:

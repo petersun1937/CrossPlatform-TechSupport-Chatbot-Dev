@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"Tg_chatbot/bot"
 	config "Tg_chatbot/configs"
@@ -44,6 +48,9 @@ func main() {
 	// service
 	srv := service.NewService(db)
 
+	// Initialize the app
+	app := server.NewApp(conf, srv)
+
 	// server
 	// server := NewServer()
 	// server.Run()
@@ -75,14 +82,8 @@ func main() {
 		log.Fatal("WEBHOOK_URL environment variable not set")
 	}*/
 
-	// TODO: implement this
-	// if err := database.NewDatabase(); err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	// initialize http server
-	go server.RunRoutes(conf, srv)
-	fmt.Printf("Running bots")
+	go app.RunRoutes(conf, srv)
 
 	// running bots
 	for _, bot := range bots {
@@ -91,6 +92,25 @@ func main() {
 			fmt.Printf("running bot failed: %s", err.Error())
 		}
 	}
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	// kill (no param) default send syscall.SIGTERM
+	// kill -2 is syscall.SIGINT
+	// kill -9 is syscall.SIGKILL but can't be caught, so don't need add it
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown Server ...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server Shutdown: ", err)
+	}
+
+	fmt.Println("Server exiting")
 
 }
 

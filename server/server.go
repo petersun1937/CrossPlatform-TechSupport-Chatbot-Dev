@@ -1,13 +1,13 @@
 package server
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 
 	config "Tg_chatbot/configs"
 	"Tg_chatbot/service"
-
-	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
@@ -45,21 +45,42 @@ func (s *Server) Start() error {
 		return nil
 	}
 */
-func (s *Server) Start() error {
+func (s *Server) Start(app *App) error {
 
 	fmt.Println("Initializing server routes")
-	router := gin.Default()
+	//router := gin.Default()
 
 	// Initialize routes
-	InitRoutes(router, s.conf, s.srv)
+	app.InitRoutes(app.Router, s.conf, s.srv)
 
 	// Run the routes
 	fmt.Println("Starting the server on port", s.svrcfg.Port)
-	err := router.Run("0.0.0.0:" + strconv.Itoa(s.svrcfg.Port)) // Binding to 0.0.0.0
+	err := app.Router.Run("0.0.0.0:" + strconv.Itoa(s.svrcfg.Port)) // Binding to 0.0.0.0
 	//err := router.Run("0.0.0.0:8080") // Binding to 0.0.0.0
 	if err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 	fmt.Println("Server started and running...")
+	return nil
+}
+
+// Shutdown gracefully shuts down the HTTP server.
+func Shutdown(ctx context.Context) error {
+	server := &http.Server{
+		Addr: ":8080", //strconv.Itoa(s.svrcfg.Port),
+	}
+
+	// Perform any pre-shutdown tasks, like closing database connections, flushing logs, etc.
+	fmt.Println("Performing pre-shutdown tasks...")
+
+	// Attempt to gracefully shut down the server with a timeout context.
+	err := server.Shutdown(ctx)
+	if err != nil {
+		fmt.Printf("Server Shutdown Failed:%+v", err)
+		return err
+	}
+
+	// Optionally, log or perform any post-shutdown tasks.
+	fmt.Println("Server gracefully stopped")
 	return nil
 }

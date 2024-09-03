@@ -119,7 +119,7 @@ func (b *tgBot) handleTgMessage(message *tgbotapi.Message) {
 	if token != nil {
 		b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
 	} else {
-		b.processUserMessage(message.Chat.ID, user.FirstName, message.Text)
+		b.processUserMessage(message, user.FirstName, message.Text)
 	}
 }
 
@@ -141,7 +141,9 @@ func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) 
 }
 
 // Process user messages and respond accordingly
-func (b *tgBot) processUserMessage(chatID int64, firstName, text string) {
+func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text string) { //chatID int64
+	chatID := message.Chat.ID
+
 	fmt.Printf("Received message from %s: %s \n", firstName, text)
 	fmt.Printf("Chat ID: %d \n", chatID)
 
@@ -157,7 +159,7 @@ func (b *tgBot) processUserMessage(chatID int64, firstName, text string) {
 	} else if screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
 	} else {
-		handleMessageDialogflow(TELEGRAM, chatID, text, b)
+		handleMessageDialogflow(TELEGRAM, message, text, b)
 		return
 	}
 
