@@ -18,6 +18,12 @@ import (
 	"gorm.io/gorm"
 )
 
+type TgBot interface {
+	Run() error
+	SetWebhook(webhookURL string) error
+	HandleTelegramUpdate(update tgbotapi.Update)
+}
+
 type tgBot struct {
 	*BaseBot
 	ctx    context.Context
@@ -27,7 +33,7 @@ type tgBot struct {
 }
 
 func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
-	botApi, err := tgbotapi.NewBotAPI(conf.GetTelegramBotToken())
+	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
 	if err != nil {
 		return nil, err
 	}
@@ -40,15 +46,31 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 	return &tgBot{
 		BaseBot: baseBot,
 		ctx:     context.Background(),
-		token:   conf.GetTelegramBotToken(),
+		token:   conf.TelegramBotToken,
 		botApi:  botApi,
 	}, nil
 
-	/*return &tgBot{
+	/*return &TgBot{
 		ctx:     context.Background(),
 		token:   conf.GetTelegramBotToken(),
 		service: service,
 	}*/
+}
+
+// SetWebhook sets the webhook for Telegram bot
+func (b *tgBot) SetWebhook(webhookURL string) error {
+	webhookConfig, err := tgbotapi.NewWebhook(webhookURL)
+	if err != nil {
+		return fmt.Errorf("error creating webhook config: %w", err)
+	}
+
+	// Send the request to set the webhook
+	_, err = b.botApi.Request(webhookConfig)
+	if err != nil {
+		return fmt.Errorf("error setting webhook: %w", err)
+	}
+
+	return nil
 }
 
 func (b *tgBot) Run() error {
@@ -60,17 +82,20 @@ func (b *tgBot) Run() error {
 
 	b.botApi = botApi
 
-	/// Create a new update configuration with offset of 0
-	// Using 0 means it will start fetching updates from the beginning.
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60 // timeout for long polling set to 60 s
+	// Start the bot with webhook
+	fmt.Println("Telegram bot is running with webhook!")
 
-	// Get updates channel to start long polling to receive updates.
-	// The channel will be continuously fed with new Update objects from Telegram.
-	updates := b.botApi.GetUpdatesChan(u)
+	// /// Create a new update configuration with offset of 0
+	// // Using 0 means it will start fetching updates from the beginning.
+	// u := tgbotapi.NewUpdate(0)
+	// u.Timeout = 60 // timeout for long polling set to 60 s
 
-	// Use go routine to continuously process received updates from the updates channel
-	go b.receiveUpdates(b.ctx, updates)
+	// // Get updates channel to start long polling to receive updates.
+	// // The channel will be continuously fed with new Update objects from Telegram.
+	// updates := b.botApi.GetUpdatesChan(u)
+
+	// // Use go routine to continuously process received updates from the updates channel
+	// go b.receiveUpdates(b.ctx, updates)
 	return nil
 }
 
@@ -169,7 +194,7 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 }
 
 // Processes incoming messages from users
-// func (b *tgBot) handleTgMessage(message *tgbotapi.Message) {
+// func (b *TgBot) handleTgMessage(message *tgbotapi.Message) {
 // 	user := message.From
 // 	text := message.Text
 

@@ -38,7 +38,7 @@ func NewDatabase2(config *config.Config) Database2 {
 // Init initializes the database connection and performs migrations
 func (db2 *database2) Init() error {
 	//dbstr := fmt.Sprintf("host=localhost user=%s password=%s dbname=chatbot port=5432 sslmode=disable", db2.user, db2.pwd)
-	dbstr := db2.conf.GetDBString()
+	dbstr := db2.conf.DBString
 
 	db, err := gorm.Open(postgres.Open(dbstr), &gorm.Config{})
 	if err != nil {

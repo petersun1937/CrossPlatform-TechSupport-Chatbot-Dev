@@ -1,0 +1,243 @@
+package bot
+
+import (
+	"net/http"
+	"os"
+	"testing"
+
+	config "Tg_chatbot/configs"
+	"Tg_chatbot/service"
+
+	"github.com/h2non/gock"
+	"github.com/line/line-bot-sdk-go/linebot"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+type MockService struct {
+	mock.Mock
+}
+
+type MockLineClient struct {
+	linebot.Client // Embed the real linebot.Client
+	mock.Mock      // Testify mock
+}
+
+// Define a MockConfig that mocks the config.Config struct
+type MockConfig struct {
+	mock.Mock
+}
+
+type MockDB struct {
+	mock.Mock
+}
+
+// Mock the GetLineSecret method
+func (m *MockConfig) GetLineSecret() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+// Mock the GetLineToken method
+func (m *MockConfig) GetLineToken() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *MockService) GetDB() service.Database {
+	args := m.Called()
+	return args.Get(0).(service.Database)
+}
+
+func (m *MockLineClient) GetProfile(userID string) (*linebot.UserProfileResponse, error) {
+	args := m.Called(userID)
+	return args.Get(0).(*linebot.UserProfileResponse), args.Error(1)
+}
+
+func (m *MockLineClient) ReplyMessage(replyToken string, messages ...linebot.SendingMessage) *linebot.ReplyMessageCall {
+	args := m.Called(replyToken, messages)
+	return args.Get(0).(*linebot.ReplyMessageCall)
+}
+
+func (m *MockLineClient) ParseRequest(req *http.Request) ([]*linebot.Event, error) {
+	args := m.Called(req)
+	return args.Get(0).([]*linebot.Event), args.Error(1)
+}
+
+// Mock for GORM methods like Where, First, and Save
+type MockGormDB struct {
+	mock.Mock
+}
+
+func TestNewLineBot(t *testing.T) {
+	// Set environment variables for the test
+	os.Setenv("DATABASE_URL", "mock_db_string")
+	os.Setenv("TELEGRAM_BOT_TOKEN", "mock_telegram_token")
+	os.Setenv("LINE_CHANNEL_SECRET", "mock_secret")
+	os.Setenv("LINE_CHANNEL_TOKEN", "mock_token")
+	os.Setenv("SERVER_HOST", "localhost")
+	os.Setenv("APP_PORT", "8080")
+	os.Setenv("SERVER_TIMEOUT", "30s")
+	os.Setenv("SERVER_MAX_CONN", "100")
+
+	// Initialize the config
+	mockConfig, err := config.NewConfig()
+	assert.NoError(t, err)
+
+	// Initialize a mock service
+	mockService := new(service.Service)
+
+	// Call the NewLineBot constructor
+	lineBot, err := NewLineBot(mockConfig, mockService)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, lineBot)
+
+	// Check that the secret and token are set correctly from the environment variables
+	assert.Equal(t, "mock_secret", lineBot.secret)
+	assert.Equal(t, "mock_token", lineBot.token)
+
+	// test other aspects?
+	assert.NotNil(t, lineBot.lineClient)
+}
+
+func TestLineBot_Run(t *testing.T) {
+	lineBot := &lineBot{
+		secret: "mock_secret",
+		token:  "mock_token",
+	}
+
+	err := lineBot.Run()
+	assert.NoError(t, err)
+	assert.NotNil(t, lineBot.lineClient)
+}
+
+func TestLineBot_GetUserProfile(t *testing.T) {
+	// Set environment variables for the test
+	os.Setenv("LINE_CHANNEL_SECRET", "mock_secret")
+	os.Setenv("LINE_CHANNEL_TOKEN", "mock_token")
+
+	// Initialize the real linebot.Client
+	realLineClient, err := linebot.New("mock_secret", "mock_token")
+	assert.NoError(t, err)
+
+	// Initialize mock service
+	mockService := new(service.Service)
+
+	// Create the lineBot instance
+	lineBot := &lineBot{
+		BaseBot:    &BaseBot{},     // Initialize BaseBot to avoid nil issues
+		lineClient: realLineClient, // Use the real linebot.Client
+		service:    mockService,
+	}
+
+	// Set up HTTP mocking for the Line API using gock
+	defer gock.Off() // Ensure gock is disabled after the test
+	gock.New("https://api.line.me").
+		Get("/v2/bot/profile/mock_user_id").
+		Reply(200).
+		JSON(map[string]string{
+			"userId":      "mock_user_id",
+			"displayName": "Mock User",
+		})
+
+	// Call the method to be tested
+	userProfile, err := lineBot.getUserProfile("mock_user_id")
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.Equal(t, "mock_user_id", userProfile.UserID)
+	assert.Equal(t, "Mock User", userProfile.DisplayName)
+
+	// ensure no unexpected requests are made
+	assert.True(t, gock.IsDone())
+}
+
+/*func TestLineBot_EnsureUserExists_UserNotFound(t *testing.T) {
+	// Create mock dependencies
+	//mockDB := new(MockDB)
+	mockDB := new(mockDatabase)
+	mockLineClient := new(MockLineClient)
+
+	// Create a real GormDB struct with the mock DB
+	//gormDB := &service.GormDB{DB: &gorm.DB{}}
+
+	service := service.NewService(mockDB)
+
+	// Initialize the lineBot instance with the real struct
+	lineBot := &lineBot{
+		BaseBot:    &BaseBot{},
+		service:    service,        // Use real GormDB, but will mock methods on it
+		lineClient: mockLineClient, // Assign a placeholder for linebot.Client
+	}
+
+	// Mock Line Profile Response
+	mockUserProfile := &linebot.UserProfileResponse{
+		UserID:      "mock_user_id",
+		DisplayName: "Mock User",
+	}
+
+	mockGormDB := new(gorm.DB) // A placeholder for gorm.DB
+	mockDB.On("GetDB").Return(mockGormDB).Once()
+
+	mockGormDB.On("Where", mock.Anything, mock.Anything).Return(mockGormDB).Once()
+	mockGormDB.On("First", mock.Anything).Return(errors.New("record not found")).Once()
+	mockGormDB.On("Save", mock.Anything).Return(nil).Once()
+
+	mockLineClient.On("GetProfile", "mock_user_id").Return(mockUserProfile, nil).Once()
+
+	userExists, err := lineBot.ensureUserExists(mockUserProfile, &linebot.Event{}, "mock_user_id")
+
+	// Assertions
+	assert.NoError(t, err)
+	assert.False(t, userExists)
+
+	// Verify the expectations
+	mockDB.AssertExpectations(t)
+	mockLineClient.AssertExpectations(t)
+}*/
+
+/*
+func TestLineBot_HandleLineMessage(t *testing.T) {
+	mockService := new(MockService)
+	mockLineClient := new(MockLineClient)
+	lineBot := &lineBot{
+		service:    mockService,
+		lineClient: mockLineClient,
+	}
+
+	// Mock user profile and event
+	mockUserProfile := &linebot.UserProfileResponse{
+		UserID:      "mock_user_id",
+		DisplayName: "Mock User",
+	}
+	mockEvent := &linebot.Event{
+		Source: &linebot.EventSource{
+			UserID: "mock_user_id",
+		},
+		ReplyToken: "mock_reply_token",
+	}
+	mockTextMessage := &linebot.TextMessage{Text: "Hello"}
+
+	// Mock methods
+	mockLineClient.On("GetProfile", "mock_user_id").Return(mockUserProfile, nil)
+	mockLineClient.On("ReplyMessage", "mock_reply_token", mock.Anything).Return(nil)
+
+	lineBot.HandleLineMessage(mockEvent, mockTextMessage)
+
+	mockLineClient.AssertExpectations(t)
+}
+
+func TestLineBot_ParseRequest(t *testing.T) {
+	mockLineClient := new(MockLineClient)
+	lineBot := &lineBot{lineClient: mockLineClient}
+
+	mockRequest := &http.Request{}
+	mockEvent := []*linebot.Event{}
+
+	mockLineClient.On("ParseRequest", mockRequest).Return(mockEvent, nil)
+
+	events, err := lineBot.ParseRequest(mockRequest)
+	assert.NoError(t, err)
+	assert.NotNil(t, events)
+}*/

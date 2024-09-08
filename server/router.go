@@ -36,8 +36,11 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 	/*r.POST("/webhook", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})*/
-	app.Router.POST("/webhook", func(c *gin.Context) {
+	app.Router.POST("/webhook/line", func(c *gin.Context) {
 		handlers.HandleLineWebhook(c, app.LineBot)
+	})
+	app.Router.POST("/webhook/telegram", func(c *gin.Context) {
+		handlers.HandleTelegramWebhook(c, app.TgBot)
 	})
 
 	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)

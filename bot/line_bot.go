@@ -29,7 +29,7 @@ type lineBot struct {
 }
 
 func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error) {
-	lineClient, err := linebot.New(conf.GetLineSecret(), conf.GetLineToken())
+	lineClient, err := linebot.New(conf.LineChannelSecret, conf.LineChannelToken)
 	if err != nil {
 		return nil, err
 	}
@@ -41,8 +41,8 @@ func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error)
 
 	return &lineBot{
 		BaseBot:    baseBot,
-		secret:     conf.GetLineSecret(),
-		token:      conf.GetLineToken(),
+		secret:     conf.LineChannelSecret,
+		token:      conf.LineChannelToken,
 		lineClient: lineClient,
 		service:    service,
 	}, nil
@@ -60,6 +60,10 @@ func (b *lineBot) Run() error {
 	}
 
 	b.lineClient = lineClient
+
+	// Start the bot with webhook
+	fmt.Println("Line bot is running with webhook!")
+
 	return nil
 }
 

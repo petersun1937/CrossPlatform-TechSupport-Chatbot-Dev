@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/line/line-bot-sdk-go/linebot"
 )
 
@@ -35,6 +36,21 @@ func HandleLineWebhook(c *gin.Context, lineBot bot.LineBot) {
 			}
 		}
 	}
+	c.Status(http.StatusOK)
+}
+
+// HandleTelegramWebhook handles incoming POST requests from Telegram
+func HandleTelegramWebhook(c *gin.Context, tgBot bot.TgBot) {
+	// Parse the incoming request from Telegram and extract the update
+	var update tgbotapi.Update
+	if err := c.ShouldBindJSON(&update); err != nil {
+		// If there's an error parsing the request, return a 400 Bad Request error
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to bind request"})
+		return
+	}
+
+	// Handle the update
+	tgBot.HandleTelegramUpdate(update)
 	c.Status(http.StatusOK)
 }
 
