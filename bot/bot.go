@@ -25,4 +25,5 @@ type Platform int
 const (
 	LINE Platform = iota
 	TELEGRAM
+	GENERAL
 )

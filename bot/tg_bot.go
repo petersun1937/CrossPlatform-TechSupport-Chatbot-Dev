@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
+	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"gorm.io/gorm"
 )
@@ -33,9 +33,15 @@ type tgBot struct {
 }
 
 func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
+	// Attempt to create a new Telegram bot using the provided token
 	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure botApi is not nil before proceeding
+	if botApi == nil {
+		return nil, errors.New("telegram Bot API is nil")
 	}
 
 	baseBot := &BaseBot{
@@ -43,6 +49,7 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 		Service:  service,
 	}
 
+	// Initialize and return tgBot instance
 	return &tgBot{
 		BaseBot: baseBot,
 		ctx:     context.Background(),
@@ -50,11 +57,6 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 		botApi:  botApi,
 	}, nil
 
-	/*return &TgBot{
-		ctx:     context.Background(),
-		token:   conf.GetTelegramBotToken(),
-		service: service,
-	}*/
 }
 
 // SetWebhook sets the webhook for Telegram bot
@@ -99,7 +101,7 @@ func (b *tgBot) Run() error {
 	return nil
 }
 
-// ReceiveUpdates receives updates from Telegram API and handles them
+// ReceiveUpdates receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
 func (b *tgBot) receiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
 	// "updates" is a channel that receives updates from the Telegram bot (e.g., messages, button clicks).
 	// The bot's API sends these updates to the application, and the function processes them by handling the updates.
@@ -193,97 +195,32 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 	}
 }
 
-// Processes incoming messages from users
-// func (b *TgBot) handleTgMessage(message *tgbotapi.Message) {
-// 	user := message.From
-// 	text := message.Text
+// handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
+func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-// 	if user == nil {
-// 		return
-// 	}
-
-// 	// Convert user.ID from int64 to string
-// 	userIDStr := strconv.FormatInt(user.ID, 10)
-
-// 	fmt.Printf("User ID: %s \n", userIDStr)
-
-// 	req := service.ValidateUserReq{
-// 		FirstName:    user.FirstName,
-// 		LastName:     user.LastName,
-// 		UserName:     user.UserName,
-// 		LanguageCode: user.LanguageCode,
-// 	}
-// 	token, err := b.service.ValidateUser(userIDStr, req)
-// 	if err != nil {
-// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-// 			fmt.Printf("User not found, created record")
-
-// 			// Send the token to the user
-// 			msg := tgbotapi.NewMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
-// 			b.botApi.Send(msg)
-
-// 		} else {
-// 			fmt.Printf("Error validating user: %s", err.Error())
-// 			return
-// 		}
-// 	} else {
-// 		fmt.Printf("Received message from %s: %s \n", user.FirstName, text)
-// 		fmt.Printf("Chat ID: %d \n", message.Chat.ID)
-
-// 		var response string
-// 		if strings.HasPrefix(text, "/") {
-// 			// Handle commands
-// 			//response, err = handleCommand(message.Chat.ID, text)
-// 			response, err = handleCommand(TELEGRAM, message.Chat.ID, text)
-// 			if err != nil {
-// 				fmt.Printf("An error occurred: %s \n", err.Error())
-// 				response = "An error occurred while processing your command."
-// 			}
-// 		} else if screaming && len(text) > 0 {
-// 			// If screaming mode is on, send the text in uppercase
-// 			response = strings.ToUpper(text)
-// 		} else {
-// 			// Process the message using processMessage function
-// 			//response = processMessage(text)
-
-// 			// Send the message to Dialogflow for processing
-// 			handleMessageDialogflow(TELEGRAM, message.Chat.ID, text)
-// 			//handleTGMessageDialogflow(message)
-// 			return
-// 		}
-
-// 		fmt.Printf("Response: '%s'\n", response)
-
-// 		// Send the response if it's not empty
-// 		if response != "" {
-// 			msg := tgbotapi.NewMessage(message.Chat.ID, response)
-// 			_, err = b.botApi.Send(msg)
-// 			if err != nil {
-// 				fmt.Printf("An error occurred: %s \n", err.Error())
-// 			}
-// 		}
-// 	}
-// }
-
-// Handle messages with Dialogflow
-/*func handleTGMessageDialogflow(message *tgbotapi.Message) {
-	projectID := "testagent-mkyg"
-	sessionID := strconv.FormatInt(message.Chat.ID, 10)
-	languageCode := "en"
-
-	// Send the user’s message to Dialogflow and receives a response.
-	response, err := utils.DetectIntentText(projectID, sessionID, message.Text, languageCode)
-	if err != nil {
-		fmt.Printf("Error detecting intent: %v\n", err)
-		return
+	// Send the response to respective platform
+	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
+	for _, msg := range response.QueryResult.FulfillmentMessages {
+		if _, ok := identifier.(*tgbotapi.Message); ok {
+			if text := msg.GetText(); text != nil {
+				return b.sendResponse(identifier, text.Text[0])
+			}
+		}
 	}
+	return fmt.Errorf("invalid Telegram message identifier")
+}
 
-	// Process Dialogflow response and send it
-	handleDialogflowResponse(response, TELEGRAM, message.Chat.ID)
-}*/
-
-// Telegram API URL *************
+// Telegram API URL ************* TODO: put this in .env
 const telegramAPIURL = "https://api.telegram.org/bot"
+
+// Check identifier and send message via Telegram
+func (b *tgBot) sendResponse(identifier interface{}, response string) error {
+	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
+		return b.sendTelegramMessage(message.Chat.ID, response)
+	} else {
+		return fmt.Errorf("invalid identifier for Telegram platform")
+	}
+}
 
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
 func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
@@ -370,6 +307,14 @@ func (b *tgBot) handleButton(query *tgbotapi.CallbackQuery) {
 	b.botApi.Send(msg)
 }
 
+func (b *tgBot) sendMenu(identifier interface{}) error {
+	if chatID, ok := identifier.(int64); ok {
+		return b.sendTGMenu(chatID)
+	} else {
+		return fmt.Errorf("invalid identifier type for Telegram platform")
+	}
+}
+
 // Send a menu to the Telegram chat
 func (b *tgBot) sendTGMenu(chatID int64) error {
 	// Define the Telegram menu
@@ -386,7 +331,7 @@ func (b *tgBot) sendTGMenu(chatID int64) error {
 }
 
 // processes custom messages
-func handleCustomMessage(c *gin.Context) {
+/*func handleCustomMessage(c *gin.Context) {
 	var req struct {
 		Message string `json:"message"`
 	}
@@ -400,11 +345,4 @@ func handleCustomMessage(c *gin.Context) {
 	// Process the message and generate a response
 	response := processMessage(req.Message)
 	c.JSON(http.StatusOK, gin.H{"response": response})
-}
-
-/*
-// generates a response for the given message
-func processMessage(message string) string {
-	// Placeholder for NLP model integration
-	return "Processed message: " + message
 }*/

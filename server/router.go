@@ -11,6 +11,7 @@ import (
 
 	config "Tg_chatbot/configs"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,28 +23,32 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 	}
 	gin.DefaultWriter = file
 
-	/*lineBot, err := bot.NewLineBot(conf, srv)
-	if err != nil {
-		log.Fatal("Failed to initialize LINE bot:", err)
-	}*/
+	// Enable CORS
+	app.Router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // Or use "*" to allow all origins
+		AllowMethods:     []string{"POST", "GET", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// Middleware to log requests
 	app.Router.Use(gin.Logger())
 	app.Router.Use(gin.Recovery())
 
 	// Define routes
-	//r.POST("/webhook", handlers.HandleLineWebhook)
-	/*r.POST("/webhook", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})*/
 	app.Router.POST("/webhook/line", func(c *gin.Context) {
 		handlers.HandleLineWebhook(c, app.LineBot)
 	})
 	app.Router.POST("/webhook/telegram", func(c *gin.Context) {
 		handlers.HandleTelegramWebhook(c, app.TgBot)
 	})
+	//app.Router.POST("api/message", handlers.MessageHandler)
+	app.Router.POST("/api/message", func(c *gin.Context) {
+		handlers.HandleGeneralWebhook(c, app.GeneralBot) // Pass the generalBot instance here
+	})
 
-	//r.POST("/webhook/telegram", handlers.HandleTelegramWebhook)
 	//r.POST("/login", handlers.Login)
 
 	// Protected routes

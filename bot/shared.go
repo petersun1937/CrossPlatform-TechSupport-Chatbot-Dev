@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/line/line-bot-sdk-go/linebot"
 	"github.com/lithammer/fuzzysearch/fuzzy"
@@ -70,7 +69,7 @@ func handleMessageDialogflow(platform Platform, identifier interface{}, text str
 		return
 	}
 
-	// Send the message to Dialogflow and receive a response
+	// Send the message to Dialogflow and receive a response TODO: testagent-mkyg
 	response, err := utils.DetectIntentText("testagent-mkyg", sessionID, text, "en")
 	if err != nil {
 		fmt.Printf("Error detecting intent: %v\n", err)
@@ -82,52 +81,6 @@ func handleMessageDialogflow(platform Platform, identifier interface{}, text str
 		fmt.Println(err)
 	}
 }
-
-/*func handleMessageDialogflow(platform Platform, identifier interface{}, text string) {
-	projectID := "testagent-mkyg"
-	var sessionID string
-	var languageCode = "en"
-
-	// Determine sessionID based on platform
-	switch platform {
-	case LINE:
-		if event, ok := identifier.(*linebot.Event); ok {
-			sessionID = event.Source.UserID
-		} else {
-			fmt.Println("Invalid LINE event identifier")
-			return
-		}
-	case TELEGRAM:
-		if message, ok := identifier.(*tgbotapi.Message); ok {
-			sessionID = strconv.FormatInt(message.Chat.ID, 10)
-		} else {
-			fmt.Println("Invalid Telegram message identifier")
-			return
-		}
-	default:
-		fmt.Println("Unsupported platform")
-		return
-	}
-
-	// Send the message to Dialogflow and receive a response
-	response, err := utils.DetectIntentText(projectID, sessionID, text, languageCode)
-	if err != nil {
-		fmt.Printf("Error detecting intent: %v\n", err)
-		return
-	}
-
-	// Process Dialogflow response and send it
-	switch platform {
-	case LINE:
-		if event, ok := identifier.(*linebot.Event); ok {
-			handleDialogflowResponse(response, LINE, event)
-		}
-	case TELEGRAM:
-		if message, ok := identifier.(*tgbotapi.Message); ok {
-			handleDialogflowResponse(response, TELEGRAM, message.Chat.ID)
-		}
-	}
-}*/
 
 // getSessionID extracts the session ID based on the platform and identifier
 func getSessionID(platform Platform, identifier interface{}) (string, error) {
@@ -142,53 +95,13 @@ func getSessionID(platform Platform, identifier interface{}) (string, error) {
 			return strconv.FormatInt(message.Chat.ID, 10), nil
 		}
 		return "", fmt.Errorf("invalid Telegram message identifier")
+	case GENERAL:
+		if sessionID, ok := identifier.(string); ok {
+			return sessionID, nil
+		}
+		return "", fmt.Errorf("invalid Telegram message identifier")
 	default:
 		return "", fmt.Errorf("unsupported platform")
-	}
-}
-
-// handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
-func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
-
-	// Send the response to respective platform
-	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if _, ok := identifier.(*linebot.Event); ok {
-			if text := msg.GetText(); text != nil {
-				return b.sendResponse(identifier, text.Text[0])
-			}
-		}
-	}
-	return fmt.Errorf("invalid LINE event identifier")
-}
-
-func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
-
-	// Send the response to respective platform
-	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if _, ok := identifier.(*tgbotapi.Message); ok {
-			if text := msg.GetText(); text != nil {
-				return b.sendResponse(identifier, text.Text[0])
-			}
-		}
-	}
-	return fmt.Errorf("invalid Telegram message identifier")
-}
-
-func (b *lineBot) sendMenu(identifier interface{}) error {
-	if event, ok := identifier.(*linebot.Event); ok {
-		return b.sendLineMenu(event.ReplyToken)
-	} else {
-		return fmt.Errorf("invalid identifier type for LINE platform")
-	}
-}
-
-func (b *tgBot) sendMenu(identifier interface{}) error {
-	if chatID, ok := identifier.(int64); ok {
-		return b.sendTGMenu(chatID)
-	} else {
-		return fmt.Errorf("invalid identifier type for Telegram platform")
 	}
 }
 
@@ -242,23 +155,6 @@ func processMessage(message string) string {
 	}
 
 	return "I'm sorry, I didn't understand that. Type /help to see what I can do."
-}
-
-// SendResponse sends a message to the specified platform
-func (b *lineBot) sendResponse(identifier interface{}, response string) error {
-	if event, ok := identifier.(*linebot.Event); ok { // Assertion to check if identifier is of type linebot.Event
-		return b.sendLineMessage(event.ReplyToken, response)
-	} else {
-		return fmt.Errorf("invalid identifier for LINE platform")
-	}
-}
-
-func (b *tgBot) sendResponse(identifier interface{}, response string) error {
-	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
-		return b.sendTelegramMessage(message.Chat.ID, response)
-	} else {
-		return fmt.Errorf("invalid identifier for Telegram platform")
-	}
 }
 
 /*func (b *BaseBot) sendResponse(identifier interface{}, response string) error { // identifier is chatID for TG, reply token for LINE

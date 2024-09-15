@@ -59,6 +59,15 @@ func (m *MockLineClient) ReplyMessage(replyToken string, messages ...linebot.Sen
 	return args.Get(0).(*linebot.ReplyMessageCall)
 }
 
+type MockReplyMessageCall struct {
+	mock.Mock
+}
+
+func (m *MockReplyMessageCall) Do() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
 func (m *MockLineClient) ParseRequest(req *http.Request) ([]*linebot.Event, error) {
 	args := m.Called(req)
 	return args.Get(0).([]*linebot.Event), args.Error(1)
@@ -155,62 +164,72 @@ func TestLineBot_GetUserProfile(t *testing.T) {
 
 /*func TestLineBot_EnsureUserExists_UserNotFound(t *testing.T) {
 	// Create mock dependencies
-	//mockDB := new(MockDB)
-	mockDB := new(mockDatabase)
-	mockLineClient := new(MockLineClient)
+	mockDB := new(service.MockDB)
+	mockGormDB := new(MockGormDB)         // Mock for GORM-like behavior
+	mockLineClient := new(MockLineClient) // Mock for linebot.Client
 
-	// Create a real GormDB struct with the mock DB
-	//gormDB := &service.GormDB{DB: &gorm.DB{}}
-
-	service := service.NewService(mockDB)
-
-	// Initialize the lineBot instance with the real struct
-	lineBot := &lineBot{
-		BaseBot:    &BaseBot{},
-		service:    service,        // Use real GormDB, but will mock methods on it
-		lineClient: mockLineClient, // Assign a placeholder for linebot.Client
-	}
-
-	// Mock Line Profile Response
-	mockUserProfile := &linebot.UserProfileResponse{
-		UserID:      "mock_user_id",
-		DisplayName: "Mock User",
-	}
-
-	mockGormDB := new(gorm.DB) // A placeholder for gorm.DB
+	// Step 2: Mock the GetDB method to return the mock GORM DB
 	mockDB.On("GetDB").Return(mockGormDB).Once()
 
+	// Step 3: Mock GORM's Where, First, and Save methods
 	mockGormDB.On("Where", mock.Anything, mock.Anything).Return(mockGormDB).Once()
 	mockGormDB.On("First", mock.Anything).Return(errors.New("record not found")).Once()
 	mockGormDB.On("Save", mock.Anything).Return(nil).Once()
 
-	mockLineClient.On("GetProfile", "mock_user_id").Return(mockUserProfile, nil).Once()
+	// Step 4: Mock the Line Client's GetProfile method
+	mockLineClient.On("GetProfile", "mock_user_id").Return(&linebot.UserProfileResponse{
+		UserID:      "mock_user_id",
+		DisplayName: "Mock User",
+	}, nil).Once()
 
-	userExists, err := lineBot.ensureUserExists(mockUserProfile, &linebot.Event{}, "mock_user_id")
+	// Step 5: Create the service and lineBot instances
+	serviceInstance := service.NewService(mockDB) // Use the mocked database
 
-	// Assertions
+	lineBot := &lineBot{
+		BaseBot:    &BaseBot{},
+		service:    serviceInstance,
+		lineClient: mockLineClient, // Use the mocked Line client
+	}
+
+	// Step 6: Call the method under test
+	userExists, err := lineBot.ensureUserExists(&linebot.UserProfileResponse{
+		UserID:      "mock_user_id",
+		DisplayName: "Mock User",
+	}, &linebot.Event{}, "mock_user_id")
+
+	// Step 7: Assertions
 	assert.NoError(t, err)
 	assert.False(t, userExists)
 
-	// Verify the expectations
+	// Step 8: Verify the expectations
 	mockDB.AssertExpectations(t)
+	mockGormDB.AssertExpectations(t)
 	mockLineClient.AssertExpectations(t)
 }*/
-
 /*
 func TestLineBot_HandleLineMessage(t *testing.T) {
+	// Create mock dependencies
 	mockService := new(MockService)
 	mockLineClient := new(MockLineClient)
+	mockReplyMessageCall := new(MockReplyMessageCall)
+
 	lineBot := &lineBot{
 		service:    mockService,
-		lineClient: mockLineClient,
+		lineClient: mockLineClient, // Pass the mock Line client
 	}
 
-	// Mock user profile and event
+	// Mock the GetProfile method to return a mock user profile
 	mockUserProfile := &linebot.UserProfileResponse{
 		UserID:      "mock_user_id",
 		DisplayName: "Mock User",
 	}
+	mockLineClient.On("GetProfile", "mock_user_id").Return(mockUserProfile, nil).Once()
+
+	// Mock the ReplyMessage method and chaining with Do()
+	mockLineClient.On("ReplyMessage", "mock_reply_token", mock.Anything).Return(mockReplyMessageCall).Once()
+	mockReplyMessageCall.On("Do").Return(nil).Once()
+
+	// Mock user profile and event
 	mockEvent := &linebot.Event{
 		Source: &linebot.EventSource{
 			UserID: "mock_user_id",
@@ -219,15 +238,15 @@ func TestLineBot_HandleLineMessage(t *testing.T) {
 	}
 	mockTextMessage := &linebot.TextMessage{Text: "Hello"}
 
-	// Mock methods
-	mockLineClient.On("GetProfile", "mock_user_id").Return(mockUserProfile, nil)
-	mockLineClient.On("ReplyMessage", "mock_reply_token", mock.Anything).Return(nil)
-
+	// Call the HandleLineMessage method
 	lineBot.HandleLineMessage(mockEvent, mockTextMessage)
 
+	// Verify the expectations
 	mockLineClient.AssertExpectations(t)
+	mockReplyMessageCall.AssertExpectations(t)
 }
-
+*/
+/*
 func TestLineBot_ParseRequest(t *testing.T) {
 	mockLineClient := new(MockLineClient)
 	lineBot := &lineBot{lineClient: mockLineClient}

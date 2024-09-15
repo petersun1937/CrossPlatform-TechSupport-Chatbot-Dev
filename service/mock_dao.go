@@ -1,14 +1,22 @@
 package service
 
 import (
-	"Tg_chatbot/models"
-
 	"github.com/stretchr/testify/mock"
 	"gorm.io/gorm"
 )
 
 type MockDB struct {
 	mock.Mock
+}
+
+func (m *MockDB) GetDB() *gorm.DB {
+	args := m.Called()
+	return args.Get(0).(*gorm.DB) // Return a mock GORM DB instance
+}
+
+func (m *MockDB) Init() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 func (m *MockDB) Create(value interface{}) error {
@@ -23,28 +31,9 @@ func (m *MockDB) Where(query interface{}, args ...interface{}) Database {
 	return m
 }
 
-// Mock First method (for both User and Item types)
+// Mock First method
 func (m *MockDB) First(out interface{}, where ...interface{}) error {
 	args := m.Called(out)
-	switch v := out.(type) {
-	case *models.User:
-		*v = models.User{
-			Model:        gorm.Model{ID: 1},
-			UserID:       "12345", // Mock UserID
-			FirstName:    "Peter",
-			LastName:     "Sun",
-			UserName:     "testuser",
-			LanguageCode: "en",
-			//Password: "testuserpassword",
-			//Role: "user",
-		}
-		/*case *models.Item:
-		*v = models.Item{
-			Model:    gorm.Model{ID: 1},
-			Title:    "testitem",
-			Category: "testcategory",
-		}*/
-	}
 	return args.Error(0)
 }
 
