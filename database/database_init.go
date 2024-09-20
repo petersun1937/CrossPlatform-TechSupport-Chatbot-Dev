@@ -13,13 +13,13 @@ import (
 //var DB *gorm.DB
 
 // Database2 interface defines the methods for database operations
-type Database2 interface {
+type Database interface {
 	Init() error
 	GetDB() *gorm.DB
 }
 
 // database2 struct holds the connection details and the gorm DB instance
-type database2 struct {
+type database struct {
 	conf *config.Config
 	//user string
 	//pwd  string
@@ -27,8 +27,8 @@ type database2 struct {
 }
 
 // NewDatabase2 creates a new instance of database2 with the provided config
-func NewDatabase2(config *config.Config) Database2 {
-	return &database2{
+func NewDatabase(config *config.Config) Database {
+	return &database{
 		conf: config,
 		//user: config.GetDBUser(),
 		//pwd:  config.GetDBPwd(),
@@ -36,7 +36,7 @@ func NewDatabase2(config *config.Config) Database2 {
 }
 
 // Init initializes the database connection and performs migrations
-func (db2 *database2) Init() error {
+func (db2 *database) Init() error {
 	//dbstr := fmt.Sprintf("host=localhost user=%s password=%s dbname=chatbot port=5432 sslmode=disable", db2.user, db2.pwd)
 	dbstr := db2.conf.DBString
 
@@ -58,7 +58,7 @@ func (db2 *database2) Init() error {
 }
 
 // GetDB returns the gorm DB instance
-func (db2 *database2) GetDB() *gorm.DB {
+func (db2 *database) GetDB() *gorm.DB {
 	return db2.db
 }
 

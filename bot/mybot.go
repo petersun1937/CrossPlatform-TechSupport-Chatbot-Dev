@@ -14,7 +14,7 @@ import (
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(context *gin.Context)
-	//SetWebhook(webhookURL string) error //TODO Webhook?
+	//SetWebhook(webhookURL string) error
 }
 
 type generalBot struct {

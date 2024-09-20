@@ -79,19 +79,22 @@ type MockGormDB struct {
 }
 
 func TestNewLineBot(t *testing.T) {
+	// Reset the config singleton before the test
+	config.ResetConfig()
+
 	// Set environment variables for the test
 	os.Setenv("DATABASE_URL", "mock_db_string")
 	os.Setenv("TELEGRAM_BOT_TOKEN", "mock_telegram_token")
 	os.Setenv("LINE_CHANNEL_SECRET", "mock_secret")
 	os.Setenv("LINE_CHANNEL_TOKEN", "mock_token")
+	os.Setenv("TELEGRAM_API_URL", "https://api.telegram.org/bot")
 	os.Setenv("SERVER_HOST", "localhost")
 	os.Setenv("APP_PORT", "8080")
 	os.Setenv("SERVER_TIMEOUT", "30s")
 	os.Setenv("SERVER_MAX_CONN", "100")
 
 	// Initialize the config
-	mockConfig, err := config.NewConfig()
-	assert.NoError(t, err)
+	mockConfig := config.GetConfig()
 
 	// Initialize a mock service
 	mockService := new(service.Service)

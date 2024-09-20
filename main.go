@@ -36,14 +36,11 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable not set")
 	}
 
-	// load configs
-	conf, err := config.NewConfig()
-	if err != nil {
-		log.Fatalf("Failed to initialize configuration: %s", err)
-	}
+	// Initialize config (only once)
+	conf := config.GetConfig()
 
 	// database
-	db := database.NewDatabase2(conf)
+	db := database.NewDatabase(conf)
 	if err := db.Init(); err != nil {
 		log.Fatal("Database initialization failed:", err)
 	}
@@ -51,12 +48,8 @@ func main() {
 	// service
 	srv := service.NewService(db)
 
-	// Initialize the app
+	// Initialize the app (app acts as the central hub for the application, holds different initialized values)
 	app := server.NewApp(conf, srv)
-
-	// server
-	// server := NewServer()
-	// server.Run()
 
 	// Initialize bots
 	lineBot, err := bot.NewLineBot(conf, srv)
@@ -71,9 +64,8 @@ func main() {
 		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
 	}
 
-	// Set webhook for Telegram using the ngrok URL
-	webhookURL := os.Getenv("TELEGRAM_WEBHOOK_URL")
-	if err := tgBot.SetWebhook(webhookURL); err != nil {
+	// Set webhook for Telegram using the ngrok URL (The set webhook step for LINE is done on their platform)
+	if err := tgBot.SetWebhook(conf.TelegramWebhookURL); err != nil {
 		log.Fatal("Failed to set Telegram webhook:", err)
 	}
 

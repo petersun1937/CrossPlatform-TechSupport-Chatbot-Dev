@@ -1,6 +1,7 @@
 package bot
 
 import (
+	config "Tg_chatbot/configs"
 	"Tg_chatbot/utils"
 	"fmt"
 	"strconv"
@@ -69,8 +70,9 @@ func handleMessageDialogflow(platform Platform, identifier interface{}, text str
 		return
 	}
 
-	// Send the message to Dialogflow and receive a response TODO: testagent-mkyg
-	response, err := utils.DetectIntentText("testagent-mkyg", sessionID, text, "en")
+	// Send the message to Dialogflow and receive a response
+	conf := config.GetConfig()
+	response, err := utils.DetectIntentText(conf.DialogflowProjectID, sessionID, text, "en")
 	if err != nil {
 		fmt.Printf("Error detecting intent: %v\n", err)
 		return

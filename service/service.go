@@ -11,10 +11,10 @@ import (
 )
 
 type Service struct {
-	database database.Database2
+	database database.Database
 }
 
-func NewService(database database.Database2) *Service {
+func NewService(database database.Database) *Service {
 	return &Service{
 		database: database,
 	}

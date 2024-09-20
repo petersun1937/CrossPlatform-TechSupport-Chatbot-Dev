@@ -4,49 +4,60 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DBString          string
-	TelegramBotToken  string
-	LineChannelSecret string
-	LineChannelToken  string
-	ServerConfig      ServerConfig
+	DBString            string
+	TelegramBotToken    string
+	LineChannelSecret   string
+	LineChannelToken    string
+	ServerConfig        ServerConfig
+	TelegramAPIURL      string
+	TelegramWebhookURL  string
+	DialogflowProjectID string
 	//DBUser string
 	//DBPwd  string
 }
 
-/*func NewConfig(dbURL string) *Config {
-	return &Config{
-		DBString: dbURL,
-	}
-}*/
+// Singleton instance of Config
+var instance *Config
+var once sync.Once
 
-// NewConfig loads environment variables and initializes the config
-func NewConfig() (*Config, error) {
-	// Only load .env if required environment variables are not already set
-	if !isEnvSet("DATABASE_URL") || !isEnvSet("TELEGRAM_BOT_TOKEN") || !isEnvSet("LINE_CHANNEL_SECRET") || !isEnvSet("LINE_CHANNEL_TOKEN") {
+// Returns the singleton instance of Config
+func GetConfig() *Config {
+	// Ensure the config is initialized only once
+	once.Do(func() {
+		err := loadConfig()
+		if err != nil {
+			panic(fmt.Sprintf("Failed to load config: %v", err))
+		}
+	})
+	return instance
+}
+
+// Load the configuration into the singleton instance
+func loadConfig() error {
+	// Load the .env file only if the DATABASE_URL is not already set
+	if !isEnvSet("DATABASE_URL") {
 		err := godotenv.Load("configs/.env")
 		if err != nil {
-			return nil, fmt.Errorf("error loading .env file: %w", err)
+			return fmt.Errorf("error loading .env file: %w", err)
 		}
 	}
 
-	// // Load environment variables from .env file
-	// err := godotenv.Load("configs/.env")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error loading .env file: %w", err)
-	// }
-
 	// Initialize the config struct with environment variables
-	config := &Config{
-		DBString:          os.Getenv("DATABASE_URL"),
-		TelegramBotToken:  os.Getenv("TELEGRAM_BOT_TOKEN"),
-		LineChannelSecret: os.Getenv("LINE_CHANNEL_SECRET"),
-		LineChannelToken:  os.Getenv("LINE_CHANNEL_TOKEN"),
+	instance = &Config{
+		DBString:            os.Getenv("DATABASE_URL"),
+		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
+		LineChannelSecret:   os.Getenv("LINE_CHANNEL_SECRET"),
+		LineChannelToken:    os.Getenv("LINE_CHANNEL_TOKEN"),
+		TelegramAPIURL:      os.Getenv("TELEGRAM_API_URL"),
+		TelegramWebhookURL:  os.Getenv("TELEGRAM_WEBHOOK_URL"),
+		DialogflowProjectID: os.Getenv("DIALOGFLOW_PROJECTID"),
 		ServerConfig: ServerConfig{
 			Host:    os.Getenv("SERVER_HOST"),
 			Port:    getEnvInt("APP_PORT", 8080),
@@ -55,12 +66,24 @@ func NewConfig() (*Config, error) {
 		},
 	}
 
-	// Validate required config values
-	if config.DBString == "" || config.TelegramBotToken == "" {
-		return nil, fmt.Errorf("required environment variables missing")
+	// Validate required config values in a more concise way
+	missingVars := []string{}
+	if instance.DBString == "" {
+		missingVars = append(missingVars, "DATABASE_URL")
+	}
+	if instance.TelegramBotToken == "" {
+		missingVars = append(missingVars, "TELEGRAM_BOT_TOKEN")
+	}
+	if instance.TelegramAPIURL == "" {
+		missingVars = append(missingVars, "TELEGRAM_API_URL")
 	}
 
-	return config, nil
+	// Return an error if any required environment variables are missing
+	if len(missingVars) > 0 {
+		return fmt.Errorf("required environment variables missing: %v", missingVars)
+	}
+
+	return nil
 }
 
 func (c *Config) Init() error {
@@ -68,25 +91,12 @@ func (c *Config) Init() error {
 	return godotenv.Load("configs/.env")
 }
 
-/*
-func (c *Config) GetTelegramBotToken() string {
-	return os.Getenv("TELEGRAM_BOT_TOKEN")
+// For resetting the singleton instance
+func ResetConfig() {
+	instance = nil     // Reset the instance for testing purposes
+	once = sync.Once{} // Reset the sync.Once to allow re-initialization
 }
 
-func (c *Config) GetLineSecret() string {
-	return os.Getenv("LINE_CHANNEL_SECRET")
-}
-
-func (c *Config) GetLineToken() string {
-	return os.Getenv("LINE_CHANNEL_TOKEN")
-}
-
-// GetDBString returns the full connection string
-func (c *Config) GetDBString() string {
-	return c.DBString
-}*/
-
-// Helper function to check if an environment variable is set
 func isEnvSet(key string) bool {
 	_, exists := os.LookupEnv(key)
 	return exists

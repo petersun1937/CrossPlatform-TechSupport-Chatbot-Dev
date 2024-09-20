@@ -101,7 +101,7 @@ func (b *tgBot) Run() error {
 	return nil
 }
 
-// ReceiveUpdates receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
+// Receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
 func (b *tgBot) receiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
 	// "updates" is a channel that receives updates from the Telegram bot (e.g., messages, button clicks).
 	// The bot's API sends these updates to the application, and the function processes them by handling the updates.
@@ -210,9 +210,6 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	return fmt.Errorf("invalid Telegram message identifier")
 }
 
-// Telegram API URL ************* TODO: put this in .env
-const telegramAPIURL = "https://api.telegram.org/bot"
-
 // Check identifier and send message via Telegram
 func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
@@ -224,8 +221,9 @@ func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
 func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
-	// Construct the URL for the Telegram API request
-	url := telegramAPIURL + b.token + "/sendMessage"
+	// Use the Telegram API URL from the config
+	conf := config.GetConfig()
+	url := conf.TelegramAPIURL + b.token + "/sendMessage"
 
 	// Create the message payload
 	message := map[string]interface{}{
