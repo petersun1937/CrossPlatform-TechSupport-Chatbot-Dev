@@ -18,13 +18,13 @@ type FbBot interface {
 }
 
 type fbBot struct {
-	*BaseBot
+	BaseBot
 	ctx             context.Context
 	pageAccessToken string
 }
 
 // creates a new FbBot instance
-func NewFBBot(conf *config.Config, service *service.Service) (*fbBot, error) {
+func NewFBBot(conf *config.Config, service service.Service) (*fbBot, error) {
 	// Verify that the page access token is available
 	if conf.FacebookPageToken == "" {
 		return nil, errors.New("facebook Page Access Token is not provided")

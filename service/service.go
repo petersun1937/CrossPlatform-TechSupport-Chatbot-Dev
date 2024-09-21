@@ -33,35 +33,12 @@ func (s *Service) GetDB() *gorm.DB {
 }
 
 func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {
-	// Check if the user exists in the database
-	var dbUser models.User
-	// err := s.dao.CreatePlayer()
-	err := s.database.GetDB().Where("user_id = ? AND deleted_at IS NULL", userIDStr).First(&dbUser).Error
-
-	// If the user does not exist, create a new user record
-	if err != nil {
-
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// User does not exist, create a new user record
-			dbUser = models.User{
-				Model: gorm.Model{
-					ID: 1,
-				},
-				UserID:       userIDStr,
-				FirstName:    req.FirstName,
-				LastName:     req.LastName,
-				UserName:     req.UserName,
-				LanguageCode: req.LanguageCode,
-			}
-
-			//err = database.DB.Create(&dbUser).Error
-			err = s.database.GetDB().Create(&dbUser).Error
-
-			if err != nil {
-				fmt.Printf("Error creating user: %s", err.Error())
+	repo := NewRepository(s.database)
+	if err := repo.GetUser(userID); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			if err := repo.CreateUser(userID, userName); err != nil {
 				return nil, err
 			}
-
 			// Generate a JWT token for the new user
 			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
 			if err != nil {
@@ -71,14 +48,7 @@ func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, 
 
 			return &token, nil
 
-			// // Send the token to the user
-			// msg := tgbotapi.NewMessage(message.Chat.ID, "Welcome! Your access token is: "+token)
-			// utils.TgBot.Send(msg)
-		} else {
-			// Handle other types of errors
-			fmt.Printf("Error retrieving user: %s", err.Error())
 		}
-
 	}
 
 	return nil, err

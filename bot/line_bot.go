@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"testing"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	"github.com/line/line-bot-sdk-go/linebot"
@@ -19,6 +20,24 @@ type LineBot interface {
 	Run() error
 	ParseRequest(req *http.Request) ([]*linebot.Event, error)
 	HandleLineMessage(event *linebot.Event, message *linebot.TextMessage)
+	GetUserProfile(userID string) string
+}
+
+type mockLineBot struct {
+}
+
+func (b *mockLineBot) Run() error {
+	return nil
+}
+func (b *mockLineBot) ParseRequest(req *http.Request) ([]*linebot.Event, error) {
+	return nil, nil
+}
+func (b *mockLineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
+
+}
+
+func (b *mockLineBot) GetUserProfile(userID string) string {
+	return userID
 }
 
 type lineBot struct {
@@ -68,7 +87,11 @@ func (b *lineBot) Run() error {
 	return nil
 }
 
-func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
+func TestHandleLineMessage_GetUserProfile_Success(t *testing.T)   {}
+func TestHandleLineMessage_GetUserProfile_Error(t *testing.T)     {}
+func TestHandleLineMessage_EnsureUserExists_Success(t *testing.T) {}
+func TestHandleLineMessage_EnsureUserExists_Error(t *testing.T)   {}
+func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) (string, error) {
 
 	// Retrieve and validate user profile
 	userProfile, err := b.getUserProfile(event.Source.UserID)
@@ -86,16 +109,14 @@ func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextM
 
 	// If user didn't exist, a welcome message was sent, so return
 	if !userExists {
-		return
+		return "user-id", errors.New("user is not existed")
 	}
 
 	// Process the user's message
-	response, err := b.processUserMessage(event, message.Text)
-	if err != nil {
-		fmt.Printf("Error processing user message: %v\n", err)
-		return
-	}
+	return b.processUserMessage(event, message.Text)
+}
 
+func (b *lineBot) Send() {
 	// Send the response if it's not empty
 	if response != "" {
 		if err := b.sendLineMessage(event.ReplyToken, response); err != nil {

@@ -25,14 +25,15 @@ type TgBot interface {
 }
 
 type tgBot struct {
-	*BaseBot
+	BaseBot
+	conf   config.BotConfig
 	ctx    context.Context
 	token  string
 	botApi *tgbotapi.BotAPI
 	//service *service.Service
 }
 
-func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
+func NewTGBot(conf *config.Config, service service.Service) (*tgBot, error) {
 	// Attempt to create a new Telegram bot using the provided token
 	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
 	if err != nil {
@@ -44,13 +45,14 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 		return nil, errors.New("telegram Bot API is nil")
 	}
 
-	baseBot := &BaseBot{
+	baseBot := BaseBot{
 		Platform: TELEGRAM,
 		Service:  service,
 	}
 
 	// Initialize and return tgBot instance
 	return &tgBot{
+		conf:    conf.BotConfig,
 		BaseBot: baseBot,
 		ctx:     context.Background(),
 		token:   conf.TelegramBotToken,
@@ -60,7 +62,7 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 }
 
 // SetWebhook sets the webhook for Telegram bot
-func (b *tgBot) SetWebhook(webhookURL string) error {
+func (b *tgBot) sSetWebhook(webhookURL string) error {
 	webhookConfig, err := tgbotapi.NewWebhook(webhookURL)
 	if err != nil {
 		return fmt.Errorf("error creating webhook config: %w", err)
@@ -98,7 +100,7 @@ func (b *tgBot) Run() error {
 
 	// // Use go routine to continuously process received updates from the updates channel
 	// go b.receiveUpdates(b.ctx, updates)
-	return nil
+	return b.sSetWebhook(b.conf.GetTelegramBotToken())
 }
 
 // Receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
@@ -125,6 +127,14 @@ func (b *tgBot) HandleTelegramUpdate(update tgbotapi.Update) {
 	} else if update.CallbackQuery != nil { // a callback query is typically generated when a user interacts with an inline button within a message.
 		b.handleButton(update.CallbackQuery) // handle button press activated by sendMenu
 	}
+}
+
+func (b *tgBot) GetUserID() (*string, error) {
+	userProfile, err := b.lineClient.GetProfile(userID).Do()
+	if err != nil {
+		return nil, err
+	}
+	return &userProfile.UserID, nil
 }
 
 // Handle Telegram messages

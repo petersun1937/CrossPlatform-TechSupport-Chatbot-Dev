@@ -11,18 +11,20 @@ import (
 )
 
 type Config struct {
-	DBString            string
-	AppPort             string
-	TelegramBotToken    string
-	LineChannelSecret   string
-	LineChannelToken    string
-	ServerConfig        ServerConfig
-	TelegramAPIURL      string
-	TelegramWebhookURL  string
-	DialogflowProjectID string
-	FacebookAPIURL      string
-	FacebookPageToken   string
-	FacebookVerifyToken string
+	ServerConfig
+	BotConfig
+	// DBString            string
+	// AppPort             string
+	// TelegramBotToken    string
+	// LineChannelSecret   string
+	// LineChannelToken    string
+	// ServerConfig        ServerConfig
+	// TelegramAPIURL      string
+	// TelegramWebhookURL  string
+	// DialogflowProjectID string
+	// FacebookAPIURL      string
+	// FacebookPageToken   string
+	// FacebookVerifyToken string
 	//DBUser string
 	//DBPwd  string
 }
@@ -30,6 +32,17 @@ type Config struct {
 // Singleton instance of Config
 var instance *Config
 var once sync.Once
+
+func init() {
+	err := loadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load config: %v", err))
+	}
+}
+
+func NewConfig() *Config {
+	return &Config{}
+}
 
 // Returns the singleton instance of Config
 func GetConfig() *Config {
@@ -131,8 +144,30 @@ func getEnvDuration(name string, defaultVal time.Duration) time.Duration {
 }
 
 type ServerConfig struct {
-	Host    string
-	Port    int // generally int
-	Timeout time.Duration
-	MaxConn int
+	Host     string
+	Port     int // generally int
+	Timeout  time.Duration
+	MaxConn  int
+	DBString string
+	AppPort  string
+}
+
+func (c *ServerConfig) GetHost() string {
+	return c.Host
+}
+
+type BotConfig struct {
+	TelegramBotToken    string
+	LineChannelSecret   string
+	LineChannelToken    string
+	TelegramAPIURL      string
+	TelegramWebhookURL  string
+	DialogflowProjectID string
+	FacebookAPIURL      string
+	FacebookPageToken   string
+	FacebookVerifyToken string
+}
+
+func (c *BotConfig) GetTelegramBotToken() string {
+	return c.TelegramBotToken
 }

@@ -6,6 +6,7 @@ import (
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 )
 
+// action, public functions
 type Bot interface {
 	Run() error
 
