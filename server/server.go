@@ -64,7 +64,7 @@ func (s *Server) Start(app *App) error {
 	return nil
 }
 
-// Shutdown gracefully shuts down the HTTP server.
+// Gracefully shuts down the HTTP server.
 func Shutdown(ctx context.Context) error {
 	server := &http.Server{
 		Addr: ":8080", //strconv.Itoa(s.svrcfg.Port),

@@ -5,11 +5,9 @@ import (
 	"Tg_chatbot/utils"
 	"fmt"
 	"strconv"
-	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/line/line-bot-sdk-go/linebot"
-	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 // For screaming state
@@ -61,7 +59,7 @@ func handleCommand(identifier interface{}, command string, bot Bot) (string, err
 	return message, nil
 }
 
-// handleMessageDialogflow handles messages from both LINE and Telegram
+// handleMessageDialogflow handles messages from different platforms
 func handleMessageDialogflow(platform Platform, identifier interface{}, text string, bot Bot) {
 	// Determine sessionID based on platform
 	sessionID, err := getSessionID(platform, identifier)
@@ -118,46 +116,46 @@ const (
 // For screaming state
 var screaming bool*/
 
-var keywords = []string{
-	"hello",
-	"help",
-	"start",
-	"menu",
-	"scream",
-	"whisper",
-}
+// var keywords = []string{
+// 	"hello",
+// 	"help",
+// 	"start",
+// 	"menu",
+// 	"scream",
+// 	"whisper",
+// }
 
-// Define responses for different messages
-func processMessage(message string) string {
-	// Convert message to lowercase to ensure case-insensitive matching
-	message = strings.ToLower(message)
+// // Define responses for different messages
+// func processMessage(message string) string {
+// 	// Convert message to lowercase to ensure case-insensitive matching
+// 	message = strings.ToLower(message)
 
-	// Perform fuzzy matching
-	bestMatch := fuzzy.RankFind(message, keywords)
+// 	// Perform fuzzy matching
+// 	bestMatch := fuzzy.RankFind(message, keywords)
 
-	if len(bestMatch) > 0 {
-		switch bestMatch[0].Target {
-		case "hello":
-			return "Hello! How can I assist you today?"
-		case "help":
-			return "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
-		case "start":
-			return "Let's get started!"
-		case "menu":
-			return "Here's the menu: ..."
-		case "scream":
-			screaming = true
-			return "Scream mode enabled! (Type /whisper to disable)"
-		/*case "whisper":
-		utils.Screaming = false
-		return "Whisper mode enabled!"*/
-		default:
-			return "I'm sorry, I didn't understand that. Type /help to see what I can do."
-		}
-	}
+// 	if len(bestMatch) > 0 {
+// 		switch bestMatch[0].Target {
+// 		case "hello":
+// 			return "Hello! How can I assist you today?"
+// 		case "help":
+// 			return "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
+// 		case "start":
+// 			return "Let's get started!"
+// 		case "menu":
+// 			return "Here's the menu: ..."
+// 		case "scream":
+// 			screaming = true
+// 			return "Scream mode enabled! (Type /whisper to disable)"
+// 		/*case "whisper":
+// 		utils.Screaming = false
+// 		return "Whisper mode enabled!"*/
+// 		default:
+// 			return "I'm sorry, I didn't understand that. Type /help to see what I can do."
+// 		}
+// 	}
 
-	return "I'm sorry, I didn't understand that. Type /help to see what I can do."
-}
+// 	return "I'm sorry, I didn't understand that. Type /help to see what I can do."
+// }
 
 /*func (b *BaseBot) sendResponse(identifier interface{}, response string) error { // identifier is chatID for TG, reply token for LINE
 	switch b.Platform {

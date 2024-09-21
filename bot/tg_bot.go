@@ -102,21 +102,21 @@ func (b *tgBot) Run() error {
 }
 
 // Receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
-func (b *tgBot) receiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
-	// "updates" is a channel that receives updates from the Telegram bot (e.g., messages, button clicks).
-	// The bot's API sends these updates to the application, and the function processes them by handling the updates.
+// func (b *tgBot) receiveUpdates(ctx context.Context, updates tgbotapi.UpdatesChannel) {
+// 	// "updates" is a channel that receives updates from the Telegram bot (e.g., messages, button clicks).
+// 	// The bot's API sends these updates to the application, and the function processes them by handling the updates.
 
-	for { // continuous loop to check for updates
-		select { // select statement waits for one of its cases to be ready, then executes the first case that becomes available.
-		case <-ctx.Done(): // if context has been cancelled:
-			fmt.Println("Goroutine: Received cancel signal, stopping...")
-			// exit the loop and stop the go routine
-			return
-		case update := <-updates: // Process incoming updates from Telegram
-			b.HandleTelegramUpdate(update)
-		}
-	}
-}
+// 	for { // continuous loop to check for updates
+// 		select { // select statement waits for one of its cases to be ready, then executes the first case that becomes available.
+// 		case <-ctx.Done(): // if context has been cancelled:
+// 			fmt.Println("Goroutine: Received cancel signal, stopping...")
+// 			// exit the loop and stop the go routine
+// 			return
+// 		case update := <-updates: // Process incoming updates from Telegram
+// 			b.HandleTelegramUpdate(update)
+// 		}
+// 	}
+// }
 
 // HandleTelegramUpdate processes incoming updates from Telegram
 func (b *tgBot) HandleTelegramUpdate(update tgbotapi.Update) {
@@ -327,20 +327,3 @@ func (b *tgBot) sendTGMenu(chatID int64) error {
 	}
 	return nil
 }
-
-// processes custom messages
-/*func handleCustomMessage(c *gin.Context) {
-	var req struct {
-		Message string `json:"message"`
-	}
-	// Bind the incoming JSON payload to the request struct
-	if err := c.BindJSON(&req); err != nil {
-		fmt.Printf("Error parsing request: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-	fmt.Printf("Received message from frontend: %s", req.Message)
-	// Process the message and generate a response
-	response := processMessage(req.Message)
-	c.JSON(http.StatusOK, gin.H{"response": response})
-}*/

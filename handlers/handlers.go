@@ -8,7 +8,7 @@ import (
 )
 
 // HandleGeneralWebhook handles incoming POST requests from the frontend
-func HandleGeneralWebhook(c *gin.Context, b bot.GeneralBot) {
+func HandlerGeneralBot(c *gin.Context, b bot.GeneralBot) {
 	// Parse the incoming request from the frontend and extract the message
 	/*var req struct {
 		Message   string `json:"message"`

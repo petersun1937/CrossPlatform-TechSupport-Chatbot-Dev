@@ -44,9 +44,12 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 	app.Router.POST("/webhook/telegram", func(c *gin.Context) {
 		handlers.HandleTelegramWebhook(c, app.TgBot)
 	})
-	//app.Router.POST("api/message", handlers.MessageHandler)
+	app.Router.GET("/messenger/webhook", handlers.VerifyMessengerWebhook) // For webhook verification
+	app.Router.POST("/messenger/webhook", func(c *gin.Context) {
+		handlers.HandleMessengerWebhook(c, app.FbBot)
+	})
 	app.Router.POST("/api/message", func(c *gin.Context) {
-		handlers.HandleGeneralWebhook(c, app.GeneralBot) // Pass the generalBot instance here
+		handlers.HandlerGeneralBot(c, app.GeneralBot) // Pass the generalBot instance here
 	})
 
 	//r.POST("/login", handlers.Login)
@@ -73,8 +76,8 @@ func (app *App) RunRoutes(conf *config.Config, svc *service.Service) {
 		MaxConn: 100,
 	}
 
-	if p := os.Getenv("APP_PORT"); p != "" {
-
+	//if p := os.Getenv("APP_PORT"); p != "" {
+	if p := app.Config.AppPort; p != "" {
 		pInt, err := strconv.Atoi(p)
 		if err == nil {
 			cfg.Port = pInt

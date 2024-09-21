@@ -12,10 +12,11 @@ import (
 
 type App struct {
 	Config     *config.Config
-	Service    *service.Service
+	Service    *service.Service // for database operations
 	Router     *gin.Engine
 	LineBot    bot.LineBot
 	TgBot      bot.TgBot
+	FbBot      bot.FbBot
 	GeneralBot bot.GeneralBot // custom frontend
 }
 
@@ -33,6 +34,12 @@ func NewApp(conf *config.Config, srv *service.Service) *App {
 		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
 	}
 
+	// Initialize the tg bot
+	fbBot, err := bot.NewFBBot(conf, srv)
+	if err != nil {
+		fmt.Printf("Failed to initialize Messenger bot: %s", err.Error())
+	}
+
 	// Initialize the general bot
 	generalBot := bot.NewGeneralBot(nil)
 
@@ -42,6 +49,7 @@ func NewApp(conf *config.Config, srv *service.Service) *App {
 		Router:     gin.Default(),
 		LineBot:    lineBot,    // Store the initialized LineBot
 		TgBot:      tgBot,      // Store the initialized TgBot
+		FbBot:      fbBot,      // Store the initialized FbBot
 		GeneralBot: generalBot, // Store the GeneralBot for /api/message route
 	}
 }

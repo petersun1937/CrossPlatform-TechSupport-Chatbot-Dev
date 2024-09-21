@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	DBString            string
+	AppPort             string
 	TelegramBotToken    string
 	LineChannelSecret   string
 	LineChannelToken    string
@@ -19,6 +20,9 @@ type Config struct {
 	TelegramAPIURL      string
 	TelegramWebhookURL  string
 	DialogflowProjectID string
+	FacebookAPIURL      string
+	FacebookPageToken   string
+	FacebookVerifyToken string
 	//DBUser string
 	//DBPwd  string
 }
@@ -52,12 +56,16 @@ func loadConfig() error {
 	// Initialize the config struct with environment variables
 	instance = &Config{
 		DBString:            os.Getenv("DATABASE_URL"),
+		AppPort:             os.Getenv("APP_PORT"),
 		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
 		LineChannelSecret:   os.Getenv("LINE_CHANNEL_SECRET"),
 		LineChannelToken:    os.Getenv("LINE_CHANNEL_TOKEN"),
 		TelegramAPIURL:      os.Getenv("TELEGRAM_API_URL"),
 		TelegramWebhookURL:  os.Getenv("TELEGRAM_WEBHOOK_URL"),
 		DialogflowProjectID: os.Getenv("DIALOGFLOW_PROJECTID"),
+		FacebookAPIURL:      os.Getenv("FACEBOOK_API_URL"),
+		FacebookPageToken:   os.Getenv("FACEBOOK_PAGE_TOKEN"),
+		FacebookVerifyToken: os.Getenv("FACEBOOK_VERIFY_TOKEN"),
 		ServerConfig: ServerConfig{
 			Host:    os.Getenv("SERVER_HOST"),
 			Port:    getEnvInt("APP_PORT", 8080),

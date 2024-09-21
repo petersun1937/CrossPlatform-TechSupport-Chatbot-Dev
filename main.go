@@ -31,21 +31,21 @@ func main() {
 		panic("Error loading .env file")
 	}
 
-	dbURL := os.Getenv("DATABASE_URL")
+	/*dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL environment variable not set")
-	}
+	}*/
 
 	// Initialize config (only once)
 	conf := config.GetConfig()
 
-	// database
+	// Initialize database
 	db := database.NewDatabase(conf)
 	if err := db.Init(); err != nil {
 		log.Fatal("Database initialization failed:", err)
 	}
 
-	// service
+	// Initialize service
 	srv := service.NewService(db)
 
 	// Initialize the app (app acts as the central hub for the application, holds different initialized values)
@@ -64,6 +64,11 @@ func main() {
 		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
 	}
 
+	fbBot, err := bot.NewFBBot(conf, srv)
+	if err != nil {
+		log.Fatalf("Failed to create Facebook bot: %v", err)
+	}
+
 	// Set webhook for Telegram using the ngrok URL (The set webhook step for LINE is done on their platform)
 	if err := tgBot.SetWebhook(conf.TelegramWebhookURL); err != nil {
 		log.Fatal("Failed to set Telegram webhook:", err)
@@ -72,8 +77,7 @@ func main() {
 	bots := []bot.Bot{
 		lineBot,
 		tgBot,
-		//bot.NewLineBot(conf),
-		//bot.NewTGBot(conf, srv),
+		fbBot,
 	}
 
 	// initialize database
@@ -84,7 +88,7 @@ func main() {
 		log.Fatal("WEBHOOK_URL environment variable not set")
 	}*/
 
-	// initialize http server
+	// initialize http server routes from app struct
 	go app.RunRoutes(conf, srv)
 
 	// running bots
@@ -97,18 +101,20 @@ func main() {
 
 	// Wait for interrupt signal to gracefully shutdown the server with
 	// a timeout of 5 seconds.
-	quit := make(chan os.Signal, 1)
+	quit := make(chan os.Signal, 1) // creates a channel named quit
+
 	// kill (no param) default send syscall.SIGTERM
 	// kill -2 is syscall.SIGINT
 	// kill -9 is syscall.SIGKILL but can't be caught, so don't need add it
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM) // tells the program to listen for specific signals (SIGINT and SIGTERM) and send them to the quit channel.
+	<-quit                                               // channel receive operation; blocking/waiting until a signal is received in quit
 	log.Println("Shutdown Server ...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // create context with timeout
+	defer cancel()                                                          // ensure the context is canceled when the function exists
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil { // graceful shutdown
 		log.Fatal("Server Shutdown: ", err)
 	}
 
