@@ -174,7 +174,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 
 func (b *generalBot) sendMenu(identifier interface{}) error {
 	if sessionID, ok := identifier.(string); ok {
-		// Logic to send menu to the frontend user
+		// Logic to send menu to the frontend user TODO
 		// For example, return a message to the frontend via the API response
 		fmt.Printf("Sending menu to frontend user with session ID: %s\n", sessionID)
 		return nil

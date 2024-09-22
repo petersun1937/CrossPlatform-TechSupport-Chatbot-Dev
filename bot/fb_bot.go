@@ -2,6 +2,7 @@ package bot
 
 import (
 	config "Tg_chatbot/configs"
+	"Tg_chatbot/models"
 	"Tg_chatbot/service"
 	"bytes"
 	"context"
@@ -10,6 +11,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+
+	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	"gorm.io/gorm"
 )
 
 type FbBot interface {
@@ -50,7 +55,7 @@ func (b *fbBot) Run() error {
 		return errors.New("page access token is missing")
 	}
 
-	//TODO
+	// No bot instance for Messenger
 
 	// webhook confirmation
 	fmt.Println("Facebook Messenger bot is running with webhook!")
@@ -82,23 +87,150 @@ type MessengerEvent struct {
 
 // HandleMessengerMessage processes incoming messages and sends a response
 func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
-	responseText := messageText // TODO response logic
-
-	// Call the sendMessage function to reply to the user
-	err := b.sendMessengerResponse(senderID, responseText)
+	// Validate user and generate a token if necessary
+	token, err := b.validateAndGenerateToken(senderID)
 	if err != nil {
-		log.Printf("Error sending message: %v", err)
+		log.Printf("Error validating user: %s", err.Error())
+		return
+	}
+
+	// If a token is generated for a new user, send it to them
+	if token != nil {
+		b.sendResponse(senderID, "Welcome! Your access token is: "+*token)
+	} else {
+		// Process the user's message if no token is sent
+		b.processUserMessage(senderID, messageText)
 	}
 }
 
+// validateAndGenerateToken checks if the user exists and generates a token if not
+func (b *fbBot) validateAndGenerateToken(userID string) (*string, error) {
+	// Retrieve user profile information from Facebook
+	userProfile, err := b.getUserProfile(userID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching user profile: %w", err)
+	}
+
+	// Check if the user exists in the database
+	var dbUser models.User
+	err = b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+	if err != nil {
+		// If user does not exist, create a new user
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dbUser = models.User{
+				UserID:       userID,
+				UserName:     userProfile.FirstName + " " + userProfile.LastName, // Combine first and last name
+				FirstName:    userProfile.FirstName,
+				LastName:     userProfile.LastName,
+				LanguageCode: "", // Facebook doesn't provide language directly
+			}
+
+			// Create the new user record in the database
+			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
+				return nil, fmt.Errorf("error creating user: %w", err)
+			}
+
+			// Generate a JWT token using the service's ValidateUser method
+			token, err := b.Service.ValidateUser(userID, service.ValidateUserReq{
+				FirstName:    userProfile.FirstName,
+				LastName:     userProfile.LastName,
+				UserName:     "", // Facebook doesn’t provide username directly
+				LanguageCode: "", // Facebook doesn’t provide language directly
+			})
+			if err != nil {
+				return nil, fmt.Errorf("error generating JWT: %w", err)
+			}
+
+			return token, nil // Return the generated token
+		}
+		return nil, fmt.Errorf("error retrieving user: %w", err)
+	}
+
+	return nil, nil // User already exists, no token generation needed
+}
+
+// getUserProfile retrieves the user profile information from Facebook
+func (b *fbBot) getUserProfile(userID string) (*service.UserProfile, error) {
+	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching user profile: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid response from Facebook, status code: %d", resp.StatusCode)
+	}
+
+	var profile service.UserProfile
+	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+		return nil, fmt.Errorf("error decoding profile response: %w", err)
+	}
+
+	return &profile, nil
+}
+
+// processUserMessage processes the user message and responds accordingly
+func (b *fbBot) processUserMessage(senderID, text string) {
+	fmt.Printf("Received message from %s: %s \n", senderID, text)
+
+	var response string
+	var err error
+
+	// Check if the message is a command (starts with "/")
+	if strings.HasPrefix(text, "/") {
+		response, err = handleCommand(senderID, text, b)
+		if err != nil {
+			fmt.Printf("An error occurred: %s \n", err.Error())
+			response = "An error occurred while processing your command."
+		}
+	} else if screaming && len(text) > 0 {
+		// Check for a "screaming" mode if applicable (uppercase response)
+		response = strings.ToUpper(text)
+	} else {
+		// Use Dialogflow or custom NLP to process the message
+		handleMessageDialogflow(FACEBOOK, senderID, text, b)
+		return
+	}
+
+	// Send the response if it's not empty
+	if response != "" {
+		err = b.sendResponse(senderID, response)
+		if err != nil {
+			fmt.Printf("Error sending response: %s\n", err.Error())
+		}
+	}
+}
+
+// handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
+func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
+
+	// Check if the recipientID (identifier) is a string (which would be the recipient ID for Facebook)
+	_, ok := identifier.(string)
+	if !ok {
+		return fmt.Errorf("invalid Facebook message identifier")
+	}
+
+	// Iterate over the fulfillment messages returned by Dialogflow
+	for _, msg := range response.QueryResult.FulfillmentMessages {
+		if text := msg.GetText(); text != nil {
+			// Send the response message to the user on Facebook Messenger
+			return b.sendResponse(identifier, text.Text[0])
+		}
+	}
+
+	return nil
+}
+
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) sendMessengerResponse(recipientID, messageText string) error {
+func (b *fbBot) sendResponse(recipientID interface{}, messageText string) error {
 	conf := config.GetConfig()
 	url := conf.FacebookAPIURL + "/messages?access_token=" + b.pageAccessToken
 
 	// Create the message payload
 	messageData := map[string]interface{}{
-		"recipient": map[string]string{"id": recipientID},
+		"recipient": map[string]string{"id": recipientID.(string)},
 		"message":   map[string]string{"text": messageText},
 	}
 
@@ -125,5 +257,78 @@ func (b *fbBot) sendMessengerResponse(recipientID, messageText string) error {
 	defer resp.Body.Close()
 
 	log.Printf("Message sent successfully to %s", recipientID)
+	return nil
+}
+
+func (b *fbBot) sendMenu(identifier interface{}) error {
+	if senderID, ok := identifier.(string); ok {
+		return b.sendMessengerMenu(senderID)
+	} else {
+		return fmt.Errorf("invalid identifier type for LINE platform")
+	}
+}
+
+// sendMessengerMenu sends a menu with buttons to the user
+func (b *fbBot) sendMessengerMenu(senderID string) error {
+	// Define the URL for the Facebook Graph API
+	url := "https://graph.facebook.com/v12.0/me/messages?access_token=" + b.pageAccessToken
+
+	// Define the menu with buttons
+	menuPayload := map[string]interface{}{
+		"recipient": map[string]interface{}{
+			"id": senderID,
+		},
+		"message": map[string]interface{}{
+			"attachment": map[string]interface{}{
+				"type": "template",
+				"payload": map[string]interface{}{
+					"template_type": "button",
+					"text":          "Choose an option:",
+					"buttons": []map[string]interface{}{
+						{
+							"type":    "postback",
+							"title":   "Menu 1",
+							"payload": "MENU_1_PAYLOAD",
+						},
+						{
+							"type":    "postback",
+							"title":   "Menu 2",
+							"payload": "MENU_2_PAYLOAD",
+						},
+						{
+							"type":  "web_url",
+							"title": "Visit Website",
+							"url":   "https://www.example.com",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Marshal the payload to JSON
+	menuBody, err := json.Marshal(menuPayload)
+	if err != nil {
+		return fmt.Errorf("error marshaling menu payload: %w", err)
+	}
+
+	// Create a new HTTP request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(menuBody))
+	if err != nil {
+		return fmt.Errorf("error creating request: %w", err)
+	}
+
+	// Set the Content-Type header
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request using the HTTP client
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending menu request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("Menu sent successfully to %s\n", senderID)
 	return nil
 }

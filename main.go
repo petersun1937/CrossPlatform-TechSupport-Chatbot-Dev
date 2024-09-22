@@ -14,8 +14,6 @@ import (
 	"Tg_chatbot/database"
 	"Tg_chatbot/server"
 	"Tg_chatbot/service"
-
-	"github.com/joho/godotenv"
 )
 
 /*
@@ -26,10 +24,10 @@ main -> telegram (handle_telegram_msg) /ask_tg (questions)
 
 func main() {
 	// Load environment variables
-	err := godotenv.Load("configs/.env")
+	/*err := godotenv.Load("configs/.env")
 	if err != nil {
 		panic("Error loading .env file")
-	}
+	}*/
 
 	/*dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {

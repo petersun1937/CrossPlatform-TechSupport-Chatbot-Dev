@@ -95,11 +95,16 @@ func getSessionID(platform Platform, identifier interface{}) (string, error) {
 			return strconv.FormatInt(message.Chat.ID, 10), nil
 		}
 		return "", fmt.Errorf("invalid Telegram message identifier")
+	case FACEBOOK:
+		if recipientID, ok := identifier.(string); ok {
+			return recipientID, nil
+		}
+		return "", fmt.Errorf("invalid Messenger recipient identifier")
 	case GENERAL:
 		if sessionID, ok := identifier.(string); ok {
 			return sessionID, nil
 		}
-		return "", fmt.Errorf("invalid Telegram message identifier")
+		return "", fmt.Errorf("invalid session identifier")
 	default:
 		return "", fmt.Errorf("unsupported platform")
 	}

@@ -4,7 +4,6 @@ import (
 	config "Tg_chatbot/configs"
 	"Tg_chatbot/models"
 	"Tg_chatbot/service"
-	"Tg_chatbot/utils/token"
 	"errors"
 	"fmt"
 	"net/http"
@@ -78,7 +77,7 @@ func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextM
 	}
 
 	// Ensure user exists in the database
-	userExists, err := b.ensureUserExists(userProfile, event, event.Source.UserID)
+	userExists, err := b.validateAndGenerateToken(userProfile, event, event.Source.UserID)
 	if err != nil {
 		fmt.Printf("Error ensuring user exists: %v\n", err)
 		return
@@ -114,7 +113,7 @@ func (b *lineBot) getUserProfile(userID string) (*linebot.UserProfileResponse, e
 }
 
 // Ensure the user exists in the database, create if not, return true if user existed
-func (b *lineBot) ensureUserExists(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
+/*func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
 	var dbUser models.User
 	//err := database.DB.Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
 	err := b.service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
@@ -142,6 +141,48 @@ func (b *lineBot) ensureUserExists(userProfile *linebot.UserProfileResponse, eve
 			if err := b.sendLineMessage(event.ReplyToken, "Welcome! Your access token is: "+token); err != nil {
 				return false, fmt.Errorf("error sending token message: %w", err)
 			}
+			return false, nil // User was just created and welcomed
+		}
+		return false, fmt.Errorf("error retrieving user: %w", err)
+	}
+	return true, nil // User already existed
+}*/
+
+// validateAndGenerateToken checks if the user exists and generates a token if not
+func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
+	var dbUser models.User
+	err := b.service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dbUser = models.User{
+				UserID:       userID,
+				UserName:     userProfile.DisplayName,
+				FirstName:    "", // LINE doesn't provide first and last names
+				LastName:     "",
+				LanguageCode: userProfile.Language,
+			}
+
+			// Create the new user record in the database
+			if err := b.service.GetDB().Create(&dbUser).Error; err != nil {
+				return false, fmt.Errorf("error creating user: %w", err)
+			}
+
+			// Generate a JWT token using the service's ValidateUser method
+			token, err := b.service.ValidateUser(userID, service.ValidateUserReq{
+				FirstName:    "", // LINE doesn't provide first and last names
+				LastName:     "", // LINE doesn't provide first and last names
+				UserName:     userProfile.DisplayName,
+				LanguageCode: userProfile.Language,
+			})
+			if err != nil {
+				return false, fmt.Errorf("error generating JWT: %w", err)
+			}
+
+			// Send welcome message with the token
+			if err := b.sendLineMessage(event.ReplyToken, "Welcome! Your access token is: "+*token); err != nil {
+				return false, fmt.Errorf("error sending token message: %w", err)
+			}
+
 			return false, nil // User was just created and welcomed
 		}
 		return false, fmt.Errorf("error retrieving user: %w", err)

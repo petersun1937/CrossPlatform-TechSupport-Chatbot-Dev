@@ -27,6 +27,12 @@ type ValidateUserReq struct {
 	LanguageCode string
 }
 
+type UserProfile struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	ID        string `json:"id"` // Facebook User ID
+}
+
 // GetDB returns the gorm.DB instance from the service's database
 func (s *Service) GetDB() *gorm.DB {
 	return s.database.GetDB()
@@ -62,7 +68,7 @@ func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, 
 				return nil, err
 			}
 
-			// Generate a JWT token for the new user
+			// Generate a JWT token for the new user   TODO: move GenerateToken to bot?
 			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
 			if err != nil {
 				fmt.Printf("Error generating JWT: %s", err.Error())
