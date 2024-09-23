@@ -24,6 +24,7 @@ type FbBot interface {
 
 type fbBot struct {
 	*BaseBot
+	conf            config.BotConfig
 	ctx             context.Context
 	pageAccessToken string
 }
@@ -44,6 +45,7 @@ func NewFBBot(conf *config.Config, service *service.Service) (*fbBot, error) {
 	// Initialize and return the fbBot instance
 	return &fbBot{
 		BaseBot:         baseBot,
+		conf:            conf.BotConfig,
 		ctx:             context.Background(),
 		pageAccessToken: conf.FacebookPageToken,
 	}, nil

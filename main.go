@@ -22,33 +22,7 @@ main -> telegram (handle_telegram_msg) /ask_tg (questions)
 
 */
 
-func main() {
-	// Load environment variables
-	/*err := godotenv.Load("configs/.env")
-	if err != nil {
-		panic("Error loading .env file")
-	}*/
-
-	/*dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL environment variable not set")
-	}*/
-
-	// Initialize config (only once)
-	conf := config.GetConfig()
-
-	// Initialize database
-	db := database.NewDatabase(conf)
-	if err := db.Init(); err != nil {
-		log.Fatal("Database initialization failed:", err)
-	}
-
-	// Initialize service
-	srv := service.NewService(db)
-
-	// Initialize the app (app acts as the central hub for the application, holds different initialized values)
-	app := server.NewApp(conf, srv)
-
+func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
 	// Initialize bots
 	lineBot, err := bot.NewLineBot(conf, srv)
 	if err != nil {
@@ -67,34 +41,34 @@ func main() {
 		log.Fatalf("Failed to create Facebook bot: %v", err)
 	}
 
-	// Set webhook for Telegram using the ngrok URL (The set webhook step for LINE is done on their platform)
-	if err := tgBot.SetWebhook(conf.TelegramWebhookURL); err != nil {
-		log.Fatal("Failed to set Telegram webhook:", err)
+	return map[string]bot.Bot{
+		"line": lineBot,
+		"tg":   tgBot,
+		"fb":   fbBot,
+	}
+}
+
+func main() {
+
+	// Initialize config (only once)
+	conf := config.GetConfig()
+
+	// Initialize database
+	db := database.NewDatabase(conf)
+	if err := db.Init(); err != nil {
+		log.Fatal("Database initialization failed:", err)
 	}
 
-	bots := []bot.Bot{
-		lineBot,
-		tgBot,
-		fbBot,
-	}
+	// Initialize service
+	srv := service.NewService(db)
 
-	// initialize database
-	// dbstr := os.Getenv("DATABASE_URL")
-	// database.InitPostgresDB(dbstr) // Initialize the database connection (defined in package "DB")
-	/*webhookURL := os.Getenv("WEBHOOK_URL")
-	if webhookURL == "" {
-		log.Fatal("WEBHOOK_URL environment variable not set")
-	}*/
+	// initialize bots
+	bots := createBots(conf, srv)
 
-	// initialize http server routes from app struct
-	go app.RunRoutes(conf, srv)
-
-	// running bots
-	for _, bot := range bots {
-		if err := bot.Run(); err != nil {
-			//log.Fatal("running bot failed:", err)
-			fmt.Printf("running bot failed: %s", err.Error())
-		}
+	// Initialize the app (app acts as the central hub for the application, holds different initialized values)
+	app := server.NewApp(conf, srv, bots)
+	if err := app.Run(); err != nil {
+		log.Fatal("Failed to run the app:", err)
 	}
 
 	// Wait for interrupt signal to gracefully shutdown the server with
@@ -117,5 +91,53 @@ func main() {
 	}
 
 	fmt.Println("Server exiting")
+
+	// Initialize bots
+	// lineBot, err := bot.NewLineBot(conf, srv)
+	// if err != nil {
+	// 	//log.Fatal("Failed to initialize LINE bot:", err)
+	// 	fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+	// }
+
+	// tgBot, err := bot.NewTGBot(conf, srv)
+	// if err != nil {
+	// 	//log.Fatal("Failed to initialize Telegram bot:", err)
+	// 	fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+	// }
+
+	// fbBot, err := bot.NewFBBot(conf, srv)
+	// if err != nil {
+	// 	log.Fatalf("Failed to create Facebook bot: %v", err)
+	// }
+
+	// Set webhook for Telegram using the ngrok URL (The set webhook step for LINE is done on their platform)
+	// if err := tgBot.SetWebhook(conf.TelegramWebhookURL); err != nil {
+	// 	log.Fatal("Failed to set Telegram webhook:", err)
+	// }
+
+	/*op bots := []bot.Bot{
+		lineBot,
+		tgBot,
+		fbBot,
+	}*/
+
+	// initialize database
+	// dbstr := os.Getenv("DATABASE_URL")
+	// database.InitPostgresDB(dbstr) // Initialize the database connection (defined in package "DB")
+	/*webhookURL := os.Getenv("WEBHOOK_URL")
+	if webhookURL == "" {
+		log.Fatal("WEBHOOK_URL environment variable not set")
+	}*/
+
+	// initialize http server routes from app struct
+	// go app.RunRoutes(conf, srv)
+
+	// // running bots
+	// for _, bot := range bots {
+	// 	if err := bot.Run(); err != nil {
+	// 		//log.Fatal("running bot failed:", err)
+	// 		fmt.Printf("running bot failed: %s", err.Error())
+	// 	}
+	// }
 
 }

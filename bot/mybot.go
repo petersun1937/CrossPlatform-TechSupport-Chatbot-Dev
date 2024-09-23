@@ -32,7 +32,8 @@ func NewGeneralBot(service *service.Service) *generalBot {
 
 	return &generalBot{
 		BaseBot: baseBot,
-		ctx:     context.Background(),
+		//conf:    conf.BotConfig,
+		ctx: context.Background(),
 	}
 }
 func (b *generalBot) Run() error {

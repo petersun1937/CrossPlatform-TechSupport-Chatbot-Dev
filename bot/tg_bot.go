@@ -21,12 +21,13 @@ import (
 
 type TgBot interface {
 	Run() error
-	SetWebhook(webhookURL string) error
+	setWebhook(webhookURL string) error
 	HandleTelegramUpdate(update tgbotapi.Update)
 }
 
 type tgBot struct {
 	*BaseBot
+	conf   config.BotConfig
 	ctx    context.Context
 	token  string
 	botApi *tgbotapi.BotAPI
@@ -53,6 +54,7 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 	// Initialize and return tgBot instance
 	return &tgBot{
 		BaseBot: baseBot,
+		conf:    conf.BotConfig,
 		ctx:     context.Background(),
 		token:   conf.TelegramBotToken,
 		botApi:  botApi,
@@ -61,7 +63,7 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 }
 
 // SetWebhook sets the webhook for Telegram bot
-func (b *tgBot) SetWebhook(webhookURL string) error {
+func (b *tgBot) setWebhook(webhookURL string) error {
 	webhookConfig, err := tgbotapi.NewWebhook(webhookURL)
 	if err != nil {
 		return fmt.Errorf("error creating webhook config: %w", err)
@@ -99,7 +101,7 @@ func (b *tgBot) Run() error {
 
 	// // Use go routine to continuously process received updates from the updates channel
 	// go b.receiveUpdates(b.ctx, updates)
-	return nil
+	return b.setWebhook(b.conf.TelegramWebhookURL)
 }
 
 // Receives updates from Telegram API and handles them (for long polling, not needed with Webhook)

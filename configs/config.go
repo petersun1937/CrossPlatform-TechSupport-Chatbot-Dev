@@ -11,25 +11,59 @@ import (
 )
 
 type Config struct {
-	DBString            string
-	AppPort             string
+	ServerConfig
+	BotConfig
+	// DBString            string
+	// AppPort             string
+	// TelegramBotToken    string
+	// LineChannelSecret   string
+	// LineChannelToken    string
+	// ServerConfig        ServerConfig
+	// TelegramAPIURL      string
+	// TelegramWebhookURL  string
+	// DialogflowProjectID string
+	// FacebookAPIURL      string
+	// FacebookPageToken   string
+	// FacebookVerifyToken string
+	//DBUser string
+	//DBPwd  string
+}
+
+type ServerConfig struct {
+	Host     string
+	Port     int // generally int
+	Timeout  time.Duration
+	MaxConn  int
+	DBString string
+	AppPort  string
+}
+
+type BotConfig struct {
 	TelegramBotToken    string
 	LineChannelSecret   string
 	LineChannelToken    string
-	ServerConfig        ServerConfig
 	TelegramAPIURL      string
 	TelegramWebhookURL  string
 	DialogflowProjectID string
 	FacebookAPIURL      string
 	FacebookPageToken   string
 	FacebookVerifyToken string
-	//DBUser string
-	//DBPwd  string
 }
 
 // Singleton instance of Config
 var instance *Config
 var once sync.Once
+
+func init() {
+	err := loadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load config: %v", err))
+	}
+}
+
+func NewConfig() *Config {
+	return &Config{}
+}
 
 // Returns the singleton instance of Config
 func GetConfig() *Config {
@@ -55,34 +89,35 @@ func loadConfig() error {
 
 	// Initialize the config struct with environment variables
 	instance = &Config{
-		DBString:            os.Getenv("DATABASE_URL"),
-		AppPort:             os.Getenv("APP_PORT"),
-		TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
-		LineChannelSecret:   os.Getenv("LINE_CHANNEL_SECRET"),
-		LineChannelToken:    os.Getenv("LINE_CHANNEL_TOKEN"),
-		TelegramAPIURL:      os.Getenv("TELEGRAM_API_URL"),
-		TelegramWebhookURL:  os.Getenv("TELEGRAM_WEBHOOK_URL"),
-		DialogflowProjectID: os.Getenv("DIALOGFLOW_PROJECTID"),
-		FacebookAPIURL:      os.Getenv("FACEBOOK_API_URL"),
-		FacebookPageToken:   os.Getenv("FACEBOOK_PAGE_TOKEN"),
-		FacebookVerifyToken: os.Getenv("FACEBOOK_VERIFY_TOKEN"),
 		ServerConfig: ServerConfig{
-			Host:    os.Getenv("SERVER_HOST"),
-			Port:    getEnvInt("APP_PORT", 8080),
-			Timeout: getEnvDuration("SERVER_TIMEOUT", 30*time.Second),
-			MaxConn: getEnvInt("SERVER_MAX_CONN", 100),
+			Host:     os.Getenv("SERVER_HOST"),
+			Port:     getEnvInt("APP_PORT", 8080),
+			Timeout:  getEnvDuration("SERVER_TIMEOUT", 30*time.Second),
+			MaxConn:  getEnvInt("SERVER_MAX_CONN", 100),
+			DBString: os.Getenv("DATABASE_URL"),
+		},
+		BotConfig: BotConfig{
+			TelegramBotToken:    os.Getenv("TELEGRAM_BOT_TOKEN"),
+			LineChannelSecret:   os.Getenv("LINE_CHANNEL_SECRET"),
+			LineChannelToken:    os.Getenv("LINE_CHANNEL_TOKEN"),
+			TelegramAPIURL:      os.Getenv("TELEGRAM_API_URL"),
+			TelegramWebhookURL:  os.Getenv("TELEGRAM_WEBHOOK_URL"),
+			DialogflowProjectID: os.Getenv("DIALOGFLOW_PROJECTID"),
+			FacebookAPIURL:      os.Getenv("FACEBOOK_API_URL"),
+			FacebookPageToken:   os.Getenv("FACEBOOK_PAGE_TOKEN"),
+			FacebookVerifyToken: os.Getenv("FACEBOOK_VERIFY_TOKEN"),
 		},
 	}
 
 	// Validate required config values in a more concise way
 	missingVars := []string{}
-	if instance.DBString == "" {
+	if instance.ServerConfig.DBString == "" {
 		missingVars = append(missingVars, "DATABASE_URL")
 	}
-	if instance.TelegramBotToken == "" {
+	if instance.BotConfig.TelegramBotToken == "" {
 		missingVars = append(missingVars, "TELEGRAM_BOT_TOKEN")
 	}
-	if instance.TelegramAPIURL == "" {
+	if instance.BotConfig.TelegramAPIURL == "" {
 		missingVars = append(missingVars, "TELEGRAM_API_URL")
 	}
 
@@ -130,9 +165,10 @@ func getEnvDuration(name string, defaultVal time.Duration) time.Duration {
 	return defaultVal
 }
 
-type ServerConfig struct {
-	Host    string
-	Port    int // generally int
-	Timeout time.Duration
-	MaxConn int
+func (c *ServerConfig) GetHost() string {
+	return c.Host
+}
+
+func (c *BotConfig) GetTelegramBotToken() string {
+	return c.TelegramBotToken
 }

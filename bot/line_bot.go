@@ -22,6 +22,7 @@ type LineBot interface {
 
 type lineBot struct {
 	*BaseBot
+	conf       config.BotConfig
 	secret     string
 	token      string
 	lineClient *linebot.Client
@@ -41,6 +42,7 @@ func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error)
 
 	return &lineBot{
 		BaseBot:    baseBot,
+		conf:       conf.BotConfig, //TODO: remove the other configs
 		secret:     conf.LineChannelSecret,
 		token:      conf.LineChannelToken,
 		lineClient: lineClient,

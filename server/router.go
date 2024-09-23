@@ -1,6 +1,7 @@
 package server
 
 import (
+	"Tg_chatbot/bot"
 	"Tg_chatbot/handlers"
 	"Tg_chatbot/service"
 	"fmt"
@@ -39,17 +40,17 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 
 	// Define routes
 	app.Router.POST("/webhook/line", func(c *gin.Context) {
-		handlers.HandleLineWebhook(c, app.LineBot)
+		handlers.HandleLineWebhook(c, app.Bots["line"].(bot.LineBot))
 	})
 	app.Router.POST("/webhook/telegram", func(c *gin.Context) {
-		handlers.HandleTelegramWebhook(c, app.TgBot)
+		handlers.HandleTelegramWebhook(c, app.Bots["tg"].(bot.TgBot))
 	})
 	app.Router.GET("/messenger/webhook", handlers.VerifyMessengerWebhook) // For webhook verification
 	app.Router.POST("/messenger/webhook", func(c *gin.Context) {
-		handlers.HandleMessengerWebhook(c, app.FbBot)
+		handlers.HandleMessengerWebhook(c, app.Bots["fb"].(bot.FbBot))
 	})
 	app.Router.POST("/api/message", func(c *gin.Context) {
-		handlers.HandlerGeneralBot(c, app.GeneralBot) // Pass the generalBot instance here
+		handlers.HandlerGeneralBot(c, app.Bots["general"].(bot.GeneralBot)) // Pass the generalBot instance here
 	})
 
 	//r.POST("/login", handlers.Login)
