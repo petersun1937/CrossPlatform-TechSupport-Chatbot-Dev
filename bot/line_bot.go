@@ -114,42 +114,6 @@ func (b *lineBot) getUserProfile(userID string) (*linebot.UserProfileResponse, e
 	return userProfile, nil
 }
 
-// Ensure the user exists in the database, create if not, return true if user existed
-/*func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
-	var dbUser models.User
-	//err := database.DB.Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
-	err := b.service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			dbUser = models.User{
-				UserID:       userID,
-				UserName:     userProfile.DisplayName,
-				FirstName:    "", // LINE doesn't provide first and last names
-				LastName:     "",
-				LanguageCode: userProfile.Language,
-			}
-			//if err := database.DB.Create(&dbUser).Error; err != nil {
-			if err := b.service.GetDB().Create(&dbUser).Error; err != nil {
-				return false, fmt.Errorf("error creating user: %w", err)
-			}
-
-			// Generate a JWT token for the new user
-			token, err := token.GenerateToken(userID, "user")
-			if err != nil {
-				return false, fmt.Errorf("error generating JWT: %w", err)
-			}
-
-			// Send welcome message with the token
-			if err := b.sendLineMessage(event.ReplyToken, "Welcome! Your access token is: "+token); err != nil {
-				return false, fmt.Errorf("error sending token message: %w", err)
-			}
-			return false, nil // User was just created and welcomed
-		}
-		return false, fmt.Errorf("error retrieving user: %w", err)
-	}
-	return true, nil // User already existed
-}*/
-
 // validateAndGenerateToken checks if the user exists and generates a token if not
 func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
 	var dbUser models.User

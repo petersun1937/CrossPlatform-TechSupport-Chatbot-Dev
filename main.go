@@ -16,38 +16,6 @@ import (
 	"Tg_chatbot/service"
 )
 
-/*
-main -> line (handle_line_msg)  /ask_line (questions)         -> /ask (questions) handle_internal_msg -> process command -> response msg -> response line or response tg
-main -> telegram (handle_telegram_msg) /ask_tg (questions)
-
-*/
-
-func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
-	// Initialize bots
-	lineBot, err := bot.NewLineBot(conf, srv)
-	if err != nil {
-		//log.Fatal("Failed to initialize LINE bot:", err)
-		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
-	}
-
-	tgBot, err := bot.NewTGBot(conf, srv)
-	if err != nil {
-		//log.Fatal("Failed to initialize Telegram bot:", err)
-		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
-	}
-
-	fbBot, err := bot.NewFBBot(conf, srv)
-	if err != nil {
-		log.Fatalf("Failed to create Facebook bot: %v", err)
-	}
-
-	return map[string]bot.Bot{
-		"line": lineBot,
-		"tg":   tgBot,
-		"fb":   fbBot,
-	}
-}
-
 func main() {
 
 	// Initialize config (only once)
@@ -92,52 +60,30 @@ func main() {
 
 	fmt.Println("Server exiting")
 
+}
+
+func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
 	// Initialize bots
-	// lineBot, err := bot.NewLineBot(conf, srv)
-	// if err != nil {
-	// 	//log.Fatal("Failed to initialize LINE bot:", err)
-	// 	fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
-	// }
+	lineBot, err := bot.NewLineBot(conf, srv)
+	if err != nil {
+		//log.Fatal("Failed to initialize LINE bot:", err)
+		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+	}
 
-	// tgBot, err := bot.NewTGBot(conf, srv)
-	// if err != nil {
-	// 	//log.Fatal("Failed to initialize Telegram bot:", err)
-	// 	fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
-	// }
+	tgBot, err := bot.NewTGBot(conf, srv)
+	if err != nil {
+		//log.Fatal("Failed to initialize Telegram bot:", err)
+		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+	}
 
-	// fbBot, err := bot.NewFBBot(conf, srv)
-	// if err != nil {
-	// 	log.Fatalf("Failed to create Facebook bot: %v", err)
-	// }
+	fbBot, err := bot.NewFBBot(conf, srv)
+	if err != nil {
+		log.Fatalf("Failed to create Facebook bot: %v", err)
+	}
 
-	// Set webhook for Telegram using the ngrok URL (The set webhook step for LINE is done on their platform)
-	// if err := tgBot.SetWebhook(conf.TelegramWebhookURL); err != nil {
-	// 	log.Fatal("Failed to set Telegram webhook:", err)
-	// }
-
-	/*op bots := []bot.Bot{
-		lineBot,
-		tgBot,
-		fbBot,
-	}*/
-
-	// initialize database
-	// dbstr := os.Getenv("DATABASE_URL")
-	// database.InitPostgresDB(dbstr) // Initialize the database connection (defined in package "DB")
-	/*webhookURL := os.Getenv("WEBHOOK_URL")
-	if webhookURL == "" {
-		log.Fatal("WEBHOOK_URL environment variable not set")
-	}*/
-
-	// initialize http server routes from app struct
-	// go app.RunRoutes(conf, srv)
-
-	// // running bots
-	// for _, bot := range bots {
-	// 	if err := bot.Run(); err != nil {
-	// 		//log.Fatal("running bot failed:", err)
-	// 		fmt.Printf("running bot failed: %s", err.Error())
-	// 	}
-	// }
-
+	return map[string]bot.Bot{
+		"line": lineBot,
+		"tg":   tgBot,
+		"fb":   fbBot,
+	}
 }

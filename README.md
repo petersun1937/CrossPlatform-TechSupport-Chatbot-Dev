@@ -1,6 +1,6 @@
 <<<<<<< HEAD
-# A Telegram Chatbot Project
+# A Cross-PLatform Chatbot Project
 =======
-# Telegrambot
-A Telegram chatbot project
+# CrossPlatformChatbot
+A Cross-PLatform Chatbot Project focusing on tech support
 >>>>>>> origin/main

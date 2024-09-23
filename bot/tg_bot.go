@@ -153,22 +153,6 @@ func (b *tgBot) handleTgMessage(message *tgbotapi.Message) {
 	}
 }
 
-// Validate user in the database and generate token if user is new
-/*func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) (*string, error) {
-	req := service.ValidateUserReq{
-		FirstName:    user.FirstName,
-		LastName:     user.LastName,
-		UserName:     user.UserName,
-		LanguageCode: user.LanguageCode,
-	}
-
-	token, err := b.Service.ValidateUser(userIDStr, req)
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		fmt.Println("User not found, created record")
-		return token, nil
-	}
-	return token, err
-}*/
 // validateAndGenerateToken checks if the user exists in the database and generates a token if not
 func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) (*string, error) {
 	// Check if the user exists in the database
