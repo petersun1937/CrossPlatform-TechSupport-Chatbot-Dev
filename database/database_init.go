@@ -3,8 +3,8 @@ package database
 import (
 	"fmt"
 
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/models"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

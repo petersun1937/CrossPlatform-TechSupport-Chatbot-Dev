@@ -1,15 +1,17 @@
-module Tg_chatbot
+module crossplatform_chatbot
 
 go 1.22.2
 
 require (
 	cloud.google.com/go/dialogflow v1.57.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
+	github.com/go-resty/resty/v2 v2.15.2
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
+	github.com/h2non/gock v1.2.0
 	github.com/joho/godotenv v1.5.1
 	github.com/line/line-bot-sdk-go v7.8.0+incompatible
-	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/stretchr/testify v1.9.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.11
@@ -28,7 +30,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
-	github.com/gin-contrib/cors v1.7.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -40,7 +41,6 @@ require (
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
-	github.com/h2non/gock v1.2.0 // indirect
 	github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
@@ -68,12 +68,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.28.0 // indirect
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
+	golang.org/x/crypto v0.27.0 // indirect
+	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/api v0.193.0 // indirect
 	google.golang.org/genproto v0.0.0-20240814211410-ddb44dafa142 // indirect
@@ -81,6 +81,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/h2non/gock.v1 v1.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

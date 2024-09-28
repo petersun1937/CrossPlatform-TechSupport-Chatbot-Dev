@@ -1,11 +1,11 @@
 package bot
 
 import (
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/models"
-	"Tg_chatbot/service"
 	"bytes"
 	"context"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/models"
+	"crossplatform_chatbot/service"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -190,6 +190,12 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 	} else if screaming && len(text) > 0 {
 		// Check for a "screaming" mode if applicable (uppercase response)
 		response = strings.ToUpper(text)
+	} else if useOpenAI {
+		// Use OpenAI to process the message
+		response, err = GetOpenAIResponse(text)
+		if err != nil {
+			response = "Error contacting OpenAI."
+		}
 	} else {
 		// Use Dialogflow or custom NLP to process the message
 		handleMessageDialogflow(FACEBOOK, senderID, text, b)
@@ -203,6 +209,7 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
 	}
+
 }
 
 // handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform

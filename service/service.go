@@ -1,8 +1,8 @@
 package service
 
 import (
-	"Tg_chatbot/database"
-	"Tg_chatbot/utils/token"
+	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/utils/token"
 	"fmt"
 
 	"gorm.io/gorm"

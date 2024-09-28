@@ -1,11 +1,11 @@
 package bot
 
 import (
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/models"
-	"Tg_chatbot/service"
 	"bytes"
 	"context"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/models"
+	"crossplatform_chatbot/service"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -211,6 +211,12 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 		}
 	} else if screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
+	} else if useOpenAI {
+		// Call OpenAI to get the response
+		response, err = GetOpenAIResponse(text)
+		if err != nil {
+			response = fmt.Sprintf("OpenAI Error: %v", err)
+		}
 	} else {
 		handleMessageDialogflow(TELEGRAM, message, text, b)
 		return

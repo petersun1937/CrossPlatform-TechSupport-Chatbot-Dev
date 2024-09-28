@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"Tg_chatbot/utils/token"
+	"crossplatform_chatbot/utils/token"
 
 	"github.com/gin-gonic/gin"
 )

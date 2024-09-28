@@ -1,8 +1,8 @@
 package bot
 
 import (
-	"Tg_chatbot/service"
 	"context"
+	"crossplatform_chatbot/service"
 	"fmt"
 	"net/http"
 	"strings"
@@ -112,6 +112,12 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 		}
 	} else if screaming && len(message) > 0 {
 		response = strings.ToUpper(message)
+	} else if useOpenAI {
+		// Use OpenAI to process the message
+		response, err = GetOpenAIResponse(message)
+		if err != nil {
+			response = "Error contacting OpenAI."
+		}
 	} else {
 		//response = fmt.Sprintf("You said: %s", message)
 		handleMessageDialogflow(GENERAL, sessionID, message, b)

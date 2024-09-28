@@ -9,11 +9,11 @@ import (
 	"syscall"
 	"time"
 
-	"Tg_chatbot/bot"
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/database"
-	"Tg_chatbot/server"
-	"Tg_chatbot/service"
+	"crossplatform_chatbot/bot"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/server"
+	"crossplatform_chatbot/service"
 )
 
 func main() {

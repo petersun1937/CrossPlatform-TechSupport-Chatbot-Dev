@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/service"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/service"
 )
 
 type Server struct {

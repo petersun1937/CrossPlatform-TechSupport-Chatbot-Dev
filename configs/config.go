@@ -48,6 +48,7 @@ type BotConfig struct {
 	FacebookAPIURL      string
 	FacebookPageToken   string
 	FacebookVerifyToken string
+	OpenaiAPIKey        string
 }
 
 // Singleton instance of Config
@@ -106,6 +107,7 @@ func loadConfig() error {
 			FacebookAPIURL:      os.Getenv("FACEBOOK_API_URL"),
 			FacebookPageToken:   os.Getenv("FACEBOOK_PAGE_TOKEN"),
 			FacebookVerifyToken: os.Getenv("FACEBOOK_VERIFY_TOKEN"),
+			OpenaiAPIKey:        os.Getenv("OPENAI_API_KEY"), //TODO move to additional config?
 		},
 	}
 

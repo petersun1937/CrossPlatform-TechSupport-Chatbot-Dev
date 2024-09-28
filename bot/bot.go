@@ -1,7 +1,7 @@
 package bot
 
 import (
-	"Tg_chatbot/service"
+	"crossplatform_chatbot/service"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 )

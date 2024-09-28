@@ -1,16 +1,16 @@
 package server
 
 import (
-	"Tg_chatbot/bot"
-	"Tg_chatbot/handlers"
-	"Tg_chatbot/service"
+	"crossplatform_chatbot/bot"
+	"crossplatform_chatbot/handlers"
+	"crossplatform_chatbot/service"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
-	config "Tg_chatbot/configs"
+	config "crossplatform_chatbot/configs"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"Tg_chatbot/bot"
+	"crossplatform_chatbot/bot"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

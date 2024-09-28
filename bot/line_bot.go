@@ -1,9 +1,9 @@
 package bot
 
 import (
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/models"
-	"Tg_chatbot/service"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/models"
+	"crossplatform_chatbot/service"
 	"errors"
 	"fmt"
 	"net/http"
@@ -161,17 +161,21 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) (string,
 	var response string
 	var err error
 
-	if strings.HasPrefix(text, "/") { // Command handling
+	if strings.HasPrefix(text, "/") {
 		response, err = handleCommand(event, text, b)
 		if err != nil {
 			return "An error occurred while processing your command.", err
 		}
 	} else if screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
+	} else if useOpenAI {
+		response, err = GetOpenAIResponse(text)
+		if err != nil {
+			response = "Error contacting OpenAI."
+		}
 	} else {
-		// Handle with Dialogflow
 		handleMessageDialogflow(LINE, event, text, b)
-		return "", nil // Response handled by Dialogflow
+		return "", nil
 	}
 
 	return response, nil

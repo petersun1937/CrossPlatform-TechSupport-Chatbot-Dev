@@ -1,9 +1,9 @@
 package server
 
 import (
-	"Tg_chatbot/bot"
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/service"
+	"crossplatform_chatbot/bot"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/service"
 	"fmt"
 
 	"github.com/gin-gonic/gin"

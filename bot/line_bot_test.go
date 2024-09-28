@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/service"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/service"
 
 	"github.com/h2non/gock"
 	"github.com/line/line-bot-sdk-go/linebot"

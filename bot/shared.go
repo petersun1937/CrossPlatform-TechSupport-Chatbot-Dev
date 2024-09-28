@@ -1,8 +1,9 @@
 package bot
 
 import (
-	config "Tg_chatbot/configs"
-	"Tg_chatbot/utils"
+	config "crossplatform_chatbot/configs"
+	openai "crossplatform_chatbot/openai"
+	"crossplatform_chatbot/utils"
 	"fmt"
 	"strconv"
 
@@ -10,8 +11,9 @@ import (
 	"github.com/line/line-bot-sdk-go/linebot"
 )
 
-// For screaming state
+// Defining states
 var screaming bool
+var useOpenAI bool = false // Default to using Dialogflow
 
 // Process the commands sent by users and returns the message as a string
 func handleCommand(identifier interface{}, command string, bot Bot) (string, error) {
@@ -27,6 +29,12 @@ func handleCommand(identifier interface{}, command string, bot Bot) (string, err
 	case "/whisper":
 		screaming = false // Disable screaming mode
 		message = "Scream mode disabled!"
+	case "/openai":
+		useOpenAI = true
+		return "Switched to OpenAI for responses.", nil
+	case "/dialogflow":
+		useOpenAI = false
+		return "Switched to Dialogflow for responses.", nil
 	case "/menu":
 		// Handle menu sending based on platform
 		/*switch platform {
@@ -49,7 +57,7 @@ func handleCommand(identifier interface{}, command string, bot Bot) (string, err
 		}
 		return "", nil
 	case "/help":
-		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu"
+		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu. You can also type /openai for GPT-based responses, and /dialogflow to switch to rule-based Dialogflow responses!"
 	case "/custom":
 		message = "This is a custom response!"
 	default:
@@ -108,4 +116,20 @@ func getSessionID(platform Platform, identifier interface{}) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported platform")
 	}
+}
+
+// GetOpenAIResponse processes the user message and fetches a response from OpenAI API
+func GetOpenAIResponse(prompt string) (string, error) {
+	client := openai.NewClient()
+	response, err := client.GetResponse(prompt)
+	if err != nil {
+		return "", fmt.Errorf("error fetching response from OpenAI: %v", err)
+	}
+
+	// Check if response is empty or missing expected fields
+	if response == "" {
+		return "", fmt.Errorf("no valid response from OpenAI. Please try again later.")
+	}
+
+	return response, nil
 }
