@@ -81,9 +81,15 @@ func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
 		log.Fatalf("Failed to create Facebook bot: %v", err)
 	}
 
+	generalBot, err := bot.NewGeneralBot(conf, srv)
+	if err != nil {
+		log.Fatalf("Failed to initialize General bot: %v", err)
+	}
+
 	return map[string]bot.Bot{
-		"line": lineBot,
-		"tg":   tgBot,
-		"fb":   fbBot,
+		"line":    lineBot,
+		"tg":      tgBot,
+		"fb":      fbBot,
+		"general": generalBot,
 	}
 }

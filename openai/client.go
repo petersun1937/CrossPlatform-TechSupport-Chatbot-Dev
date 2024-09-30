@@ -34,9 +34,9 @@ func NewClient() *Client {
 // Function to get a response from the OpenAI API
 func (c *Client) GetResponse(prompt string) (string, error) {
 	request := map[string]interface{}{
-		"model":       "gpt-3.5-turbo",                                          // Specify model type here (can't use gpt-4?)
+		"model":       "gpt-4",                                                  // Specify model type here (gpt-3.5-turbo, gpt-4o-mini, chatgpt-4o, gpt-4)
 		"messages":    []map[string]string{{"role": "user", "content": prompt}}, // Adjusted for chat models
-		"max_tokens":  100,
+		"max_tokens":  250,
 		"temperature": 0.7,
 	}
 

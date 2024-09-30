@@ -3,7 +3,9 @@ package handlers
 import (
 	"crossplatform_chatbot/bot"
 	config "crossplatform_chatbot/configs"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -67,9 +69,17 @@ func HandleMessengerWebhook(c *gin.Context, fbBot bot.FbBot) {
 	for _, entry := range event.Entry {
 		for _, msg := range entry.Messaging {
 			senderID := msg.Sender.ID
-			messageText := msg.Message.Text
+			//messageText := msg.Message.Text
 
-			fbBot.HandleMessengerMessage(senderID, messageText)
+			//fbBot.HandleMessengerMessage(senderID, messageText)
+
+			// Check if the message text is non-empty
+			if strings.TrimSpace(msg.Message.Text) != "" {
+				messageText := msg.Message.Text
+				fbBot.HandleMessengerMessage(senderID, messageText)
+			} else {
+				fmt.Printf("Non-text or empty message received from %s, skipping...\n", senderID)
+			}
 		}
 	}
 

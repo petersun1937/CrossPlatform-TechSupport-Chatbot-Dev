@@ -2,7 +2,9 @@ package bot
 
 import (
 	"context"
+	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -20,11 +22,12 @@ type GeneralBot interface {
 type generalBot struct {
 	// Add any common fields if necessary, like configuration
 	*BaseBot
-	ctx context.Context
+	ctx  context.Context
+	conf config.BotConfig
 	//config map[string]string
 }
 
-func NewGeneralBot(service *service.Service) *generalBot {
+func NewGeneralBot(conf *config.Config, service *service.Service) (*generalBot, error) {
 	baseBot := &BaseBot{
 		Platform: GENERAL,
 		Service:  service,
@@ -32,10 +35,11 @@ func NewGeneralBot(service *service.Service) *generalBot {
 
 	return &generalBot{
 		BaseBot: baseBot,
-		//conf:    conf.BotConfig,
-		ctx: context.Background(),
-	}
+		conf:    conf.BotConfig,
+		ctx:     context.Background(),
+	}, nil
 }
+
 func (b *generalBot) Run() error {
 	// Implement logic for running the bot
 	fmt.Println("General bot is running...")
@@ -103,7 +107,6 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 	fmt.Printf("Received message %s \n", message)
 	fmt.Printf("Chat ID: %s \n", sessionID)
 
-	// Example: Handle commands
 	if strings.HasPrefix(message, "/") {
 		response, err = handleCommand("", message, b) // TODO: Add ChatID instead of empty string
 		if err != nil {
@@ -112,18 +115,44 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 		}
 	} else if screaming && len(message) > 0 {
 		response = strings.ToUpper(message)
-	} else if useOpenAI {
-		// Use OpenAI to process the message
-		response, err = GetOpenAIResponse(message)
-		if err != nil {
-			response = "Error contacting OpenAI."
-		}
 	} else {
-		//response = fmt.Sprintf("You said: %s", message)
-		handleMessageDialogflow(GENERAL, sessionID, message, b)
+		// Get all document embeddings
+		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		if err != nil {
+			fmt.Printf("Error retrieving document embeddings: %v", err)
+			response = "Error retrieving document embeddings."
+		} else if useOpenAI {
+			// Perform similarity matching with the user's message
+			topChunks, err := utils.RetrieveTopNChunks(message, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks
+			if err != nil {
+				fmt.Printf("Error retrieving document chunks: %v", err)
+				response = "Error retrieving related document information."
+			} else if len(topChunks) > 0 {
+				// If there are similar chunks found, provide them as context for GPT
+				context := strings.Join(topChunks, "\n")
+				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
+
+				// Call GPT with the context and user query
+				response, err = GetOpenAIResponse(gptPrompt)
+				if err != nil {
+					response = fmt.Sprintf("OpenAI Error: %v", err)
+				}
+			} else {
+				// If no relevant document found, fallback to OpenAI response
+				response, err = GetOpenAIResponse(message)
+				if err != nil {
+					response = fmt.Sprintf("OpenAI Error: %v", err)
+				}
+			}
+
+		} else {
+			//response = fmt.Sprintf("You said: %s", message)
+			handleMessageDialogflow(GENERAL, sessionID, message, b)
+		}
 	}
 
 	if response != "" {
+		fmt.Printf("Sent message %s \n", response)
 		err := b.sendResponse(sessionID, response)
 		if err != nil {
 			//c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while sending the response"})

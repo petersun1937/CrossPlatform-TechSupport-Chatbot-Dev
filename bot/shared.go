@@ -6,6 +6,7 @@ import (
 	"crossplatform_chatbot/utils"
 	"fmt"
 	"strconv"
+	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/line/line-bot-sdk-go/linebot"
@@ -13,7 +14,7 @@ import (
 
 // Defining states
 var screaming bool
-var useOpenAI bool = false // Default to using Dialogflow
+var useOpenAI bool = true // Default to using Dialogflow
 
 // Process the commands sent by users and returns the message as a string
 func handleCommand(identifier interface{}, command string, bot Bot) (string, error) {
@@ -128,8 +129,22 @@ func GetOpenAIResponse(prompt string) (string, error) {
 
 	// Check if response is empty or missing expected fields
 	if response == "" {
-		return "", fmt.Errorf("no valid response from OpenAI. Please try again later.")
+		return "", fmt.Errorf("no valid response from OpenAI. Please try again later")
 	}
 
+	fmt.Printf("OpenAI response: %s \n", response)
+
+	// Filter out "Response:" if it exists
+	response = filterGPTResponse(response)
+
 	return response, nil
+}
+
+func filterGPTResponse(response string) string {
+	// Check if the response starts with "Response:" and remove it
+	if strings.HasPrefix(response, "Response:") {
+		return strings.TrimPrefix(response, "Response:")
+	}
+	// Return the response without unnecessary leading/trailing spaces
+	return response
 }

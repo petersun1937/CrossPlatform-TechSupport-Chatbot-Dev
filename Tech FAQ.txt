@@ -1,0 +1,44 @@
+Technical FAQ & Guidelines
+
+Welcome to our product support page! Below, you’ll find answers to common questions and guidelines for using our product effectively.
+
+1. What are the system requirements?
+Operating System: Windows 10 or later, macOS 10.13 or later
+Processor: Intel Core i3 or equivalent
+Memory: 4 GB RAM or more
+Storage: At least 500 MB free space
+Internet: A stable internet connection for software updates and online features
+2. How do I install the product?
+For Windows:
+Download the installer from [our website].
+Open the downloaded file and follow the installation wizard.
+Once installed, launch the application from your desktop.
+For macOS:
+Download the DMG file from [our website].
+Open the file and drag the application to your "Applications" folder.
+Open the application from "Applications" to get started.
+3. How do I update the product?
+Our product supports automatic updates. If there’s a new version available:
+
+You’ll receive a prompt within the application to download and install the latest version.
+Alternatively, you can check for updates manually by going to Settings > Check for Updates.
+4. What should I do if the product crashes or freezes?
+Ensure your system meets the minimum requirements listed above.
+Restart the application and try again.
+If the issue persists, restart your computer.
+If you continue to experience issues, contact our support team at [email] with details of the problem.
+5. How do I reset the product to default settings?
+To reset to default settings:
+
+Go to Settings > Reset to Default.
+Confirm your choice, and the product will restore to factory settings. Note that this will erase all custom configurations.
+6. How do I contact support?
+For further assistance, reach out to our support team at [email] or call us at [phone number]. We are available Monday to Friday, from 9 AM to 5 PM.
+
+7. Can I transfer my license to another device?
+Yes, you can transfer your license to a different device by:
+
+Deactivating the license on your current device (found in Settings > License).
+Install the product on the new device and activate the license using your key.
+Need more help?
+Feel free to visit our online knowledge base or contact us directly for more detailed guidance.

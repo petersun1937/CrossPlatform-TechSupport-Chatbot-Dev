@@ -2,8 +2,11 @@ package service
 
 import (
 	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/models"
+	"crossplatform_chatbot/utils"
 	"crossplatform_chatbot/utils/token"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -64,6 +67,37 @@ func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, 
 	}
 
 	return nil, err
+}
+
+// StoreDocumentEmbedding stores the document and its embedding into the database
+func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding []float64) error {
+	repo := NewRepository(s.database)
+
+	// Convert embedding to PostgreSQL-compatible array string
+	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+	// Create a DocumentEmbedding object to store in the database
+	docEmbedding := models.DocumentEmbedding{
+		DocID:   docID,
+		DocText: docText,
+		//Embedding: embedding,
+		Embedding: embeddingStr,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	// Use the repository to save the document embedding
+	err := repo.CreateDocumentEmbedding(&docEmbedding)
+	if err != nil {
+		return fmt.Errorf("error storing document embedding: %v", err)
+	}
+
+	return nil
+}
+
+// CreateDocumentEmbedding stores a document embedding in the database
+func (r *Repository) CreateDocumentEmbedding(docEmbedding *models.DocumentEmbedding) error {
+	return r.database.GetDB().Create(docEmbedding).Error
 }
 
 // func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {

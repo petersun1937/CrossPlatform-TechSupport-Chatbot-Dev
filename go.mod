@@ -13,6 +13,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/line/line-bot-sdk-go v7.8.0+incompatible
 	github.com/stretchr/testify v1.9.0
+	github.com/texttheater/golang-levenshtein/levenshtein v0.0.0-20200805054039-cae8b0eaed6c
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.11
 )

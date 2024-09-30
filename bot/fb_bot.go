@@ -6,6 +6,7 @@ import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/models"
 	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,6 +90,12 @@ type MessengerEvent struct {
 
 // HandleMessengerMessage processes incoming messages and sends a response
 func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
+	// Trim whitespace and check for empty message
+	if strings.TrimSpace(messageText) == "" {
+		fmt.Printf("Empty or invalid message received from %s, ignoring...\n", senderID)
+		return
+	}
+
 	// Validate user and generate a token if necessary
 	token, err := b.validateAndGenerateToken(senderID)
 	if err != nil {
@@ -190,16 +197,40 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 	} else if screaming && len(text) > 0 {
 		// Check for a "screaming" mode if applicable (uppercase response)
 		response = strings.ToUpper(text)
-	} else if useOpenAI {
-		// Use OpenAI to process the message
-		response, err = GetOpenAIResponse(text)
-		if err != nil {
-			response = "Error contacting OpenAI."
-		}
 	} else {
-		// Use Dialogflow or custom NLP to process the message
-		handleMessageDialogflow(FACEBOOK, senderID, text, b)
-		return
+		// Fetch document embeddings and try to match based on similarity
+		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		if err != nil {
+			fmt.Printf("Error retrieving document embeddings: %v", err)
+			response = "Error retrieving document embeddings."
+		} else if useOpenAI {
+			// Perform similarity matching with the user's message
+			topChunks, err := utils.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
+			if err != nil {
+				fmt.Printf("Error retrieving document chunks: %v", err)
+				response = "Error retrieving related document information."
+			} else if len(topChunks) > 0 {
+				// If there are similar chunks found, provide them as context for GPT
+				context := strings.Join(topChunks, "\n")
+				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
+
+				// Call GPT with the context and user query
+				response, err = GetOpenAIResponse(gptPrompt)
+				if err != nil {
+					response = fmt.Sprintf("OpenAI Error: %v", err)
+				}
+			} else {
+				// If no relevant document found, fallback to OpenAI response
+				response, err = GetOpenAIResponse(text)
+				if err != nil {
+					response = fmt.Sprintf("OpenAI Error: %v", err)
+				}
+			}
+		} else {
+			// Use Dialogflow if OpenAI is not enabled
+			handleMessageDialogflow(FACEBOOK, senderID, text, b)
+			return
+		}
 	}
 
 	// Send the response if it's not empty
