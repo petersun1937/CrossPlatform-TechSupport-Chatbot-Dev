@@ -7,6 +7,7 @@ import (
 	"crossplatform_chatbot/utils/token"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 )
@@ -73,20 +74,21 @@ func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, 
 func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding []float64) error {
 	repo := NewRepository(s.database)
 
+	// Sanitize the document text
+	docText = sanitizeText(docText)
+
 	// Convert embedding to PostgreSQL-compatible array string
 	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
 
-	// Create a DocumentEmbedding object to store in the database
 	docEmbedding := models.DocumentEmbedding{
-		DocID:   docID,
-		DocText: docText,
-		//Embedding: embedding,
+		DocID:     docID,
+		DocText:   docText,
 		Embedding: embeddingStr,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 
-	// Use the repository to save the document embedding
+	// Store the sanitized document embedding
 	err := repo.CreateDocumentEmbedding(&docEmbedding)
 	if err != nil {
 		return fmt.Errorf("error storing document embedding: %v", err)
@@ -98,6 +100,17 @@ func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding
 // CreateDocumentEmbedding stores a document embedding in the database
 func (r *Repository) CreateDocumentEmbedding(docEmbedding *models.DocumentEmbedding) error {
 	return r.database.GetDB().Create(docEmbedding).Error
+}
+
+func sanitizeText(input string) string {
+	validRunes := []rune{}
+	for _, r := range input {
+		if r == utf8.RuneError {
+			continue // Skip invalid characters
+		}
+		validRunes = append(validRunes, r)
+	}
+	return string(validRunes)
 }
 
 // func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {

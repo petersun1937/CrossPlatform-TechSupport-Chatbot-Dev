@@ -52,6 +52,9 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 	app.Router.POST("/api/message", func(c *gin.Context) {
 		handlers.HandlerGeneralBot(c, app.Bots["general"].(bot.GeneralBot)) // Pass the generalBot instance here
 	})
+	app.Router.POST("/api/document/upload", func(c *gin.Context) {
+		handlers.HandlerDocumentUpload(c, app.Bots["general"].(bot.GeneralBot)) // Bind the document upload handler to the route
+	})
 
 	//r.POST("/login", handlers.Login)
 

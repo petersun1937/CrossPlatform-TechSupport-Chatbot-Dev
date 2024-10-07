@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crossplatform_chatbot/bot"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -27,4 +28,47 @@ func HandlerGeneralBot(c *gin.Context, b bot.GeneralBot) {
 
 	// Return an OK status
 	c.Status(http.StatusOK)
+}
+
+// HandleDocumentUpload handles document uploads, processes the document, chunks it, and stores the embeddings
+func HandlerDocumentUpload(c *gin.Context, b bot.GeneralBot) {
+
+	// Parse the file from the form-data
+	file, err := c.FormFile("document")
+	if err != nil {
+		fmt.Printf("Error receiving file: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file upload"})
+		return
+	}
+
+	// Retrieve session ID from the form-data
+	sessionID := c.PostForm("sessionID")
+	if sessionID == "" {
+		fmt.Println("Error: Missing sessionID")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Session ID is required"})
+		return
+	}
+
+	// Save the uploaded file to a temporary location
+	filePath := fmt.Sprintf("/tmp/%s", file.Filename)
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		fmt.Printf("Error saving file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving the file"})
+		return
+	}
+
+	// Call bot to process the document
+	err = b.ProcessDocument(sessionID, filePath)
+	if err != nil {
+		fmt.Printf("Error processing document: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Send success response
+	fmt.Println("Document processed successfully")
+	c.JSON(http.StatusOK, gin.H{
+		"response": "Document processed successfully",
+	})
+	//c.JSON(http.StatusOK, gin.H{"message": "Document processed successfully"})
 }

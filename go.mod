@@ -12,6 +12,7 @@ require (
 	github.com/h2non/gock v1.2.0
 	github.com/joho/godotenv v1.5.1
 	github.com/line/line-bot-sdk-go v7.8.0+incompatible
+	github.com/nguyenthenguyen/docx v0.0.0-20230621112118-9c8e795a11db
 	github.com/stretchr/testify v1.9.0
 	github.com/texttheater/golang-levenshtein/levenshtein v0.0.0-20200805054039-cae8b0eaed6c
 	gorm.io/driver/postgres v1.5.9

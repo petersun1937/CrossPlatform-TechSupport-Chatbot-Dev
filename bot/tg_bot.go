@@ -5,6 +5,7 @@ import (
 	"context"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/models"
+	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/service"
 	"crossplatform_chatbot/utils"
 	"encoding/json"
@@ -446,4 +447,20 @@ func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
 	}
 
 	b.sendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
+}
+
+func (b *tgBot) StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error {
+	//chunks := ChunkDocument(text, chunkSize)
+	//chunks := utils.ChunkDocumentBySentence(text, chunkSize)
+	chunks := utils.ChunkSmartly(text, chunkSize, minchunkSize)
+	for i, chunk := range chunks {
+		embedding, err := openai.EmbedDocument(chunk)
+		if err != nil {
+			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding) // Store each chunk with its embedding
+	}
+	fmt.Println("Document embedding complete.")
+	return nil
 }

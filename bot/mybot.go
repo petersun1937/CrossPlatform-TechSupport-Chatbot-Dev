@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	config "crossplatform_chatbot/configs"
+	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/service"
 	"crossplatform_chatbot/utils"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(context *gin.Context)
+	StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error
+	ProcessDocument(sessionID string, filePath string) error
 	//SetWebhook(webhookURL string) error
 }
 
@@ -216,4 +219,42 @@ func (b *generalBot) sendMenu(identifier interface{}) error {
 		return nil
 	}
 	return fmt.Errorf("invalid identifier type for frontend platform")
+}
+
+func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, minChunkSize int) error {
+	// Chunk the document using the chunking logic (smart chunking in this case)
+	chunks := utils.ChunkSmartly(text, chunkSize, minChunkSize)
+
+	for i, chunk := range chunks {
+		// Get the embeddings for each chunk
+		embedding, err := openai.EmbedDocument(chunk)
+		if err != nil {
+			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+
+		// Create a unique chunk ID for storage in the database
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		// Store each chunk and its embedding
+		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+	}
+	fmt.Println("Document embedding complete.")
+	return nil
+}
+
+func (b *generalBot) ProcessDocument(sessionID string, filePath string) error {
+	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
+	docText, err := downloadAndExtractText(filePath)
+	if err != nil {
+		return fmt.Errorf("error processing document: %w", err)
+	}
+
+	// Store document chunks and their embeddings
+	chunkSize := 500
+	minChunkSize := 50
+	err = b.StoreDocumentChunks(sessionID, docText, chunkSize, minChunkSize)
+	if err != nil {
+		return fmt.Errorf("error storing document chunks: %w", err)
+	}
+
+	return nil
 }
