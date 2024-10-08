@@ -13,6 +13,8 @@ import (
 type Config struct {
 	ServerConfig
 	BotConfig
+	EmbeddingConfig
+	OpenAIConfig
 	// DBString            string
 	// AppPort             string
 	// TelegramBotToken    string
@@ -48,7 +50,21 @@ type BotConfig struct {
 	FacebookAPIURL      string
 	FacebookPageToken   string
 	FacebookVerifyToken string
-	OpenaiAPIKey        string
+}
+
+type OpenAIConfig struct {
+	OpenaiAPIKey   string
+	OpenaiEmbModel string
+	OpenaiMsgModel string
+	MaxTokens      int
+}
+
+type EmbeddingConfig struct {
+	//EmbeddingBatchSize int
+	ChunkSize      int
+	MinChunkSize   int
+	ScoreThreshold float64
+	NumTopChunks   int
 }
 
 // Singleton instance of Config
@@ -107,7 +123,19 @@ func loadConfig() error {
 			FacebookAPIURL:      os.Getenv("FACEBOOK_API_URL"),
 			FacebookPageToken:   os.Getenv("FACEBOOK_PAGE_TOKEN"),
 			FacebookVerifyToken: os.Getenv("FACEBOOK_VERIFY_TOKEN"),
-			OpenaiAPIKey:        os.Getenv("OPENAI_API_KEY"), //TODO move to additional config?
+		},
+		OpenAIConfig: OpenAIConfig{
+			OpenaiAPIKey:   os.Getenv("OPENAI_API_KEY"),
+			OpenaiEmbModel: os.Getenv("OPENAI_EMBED_MODEL"),
+			OpenaiMsgModel: os.Getenv("OPENAI_MSG_MODEL"),
+			MaxTokens:      getEnvInt("OPENAI_MAX_TOKEN_SIZE", 250),
+		},
+		EmbeddingConfig: EmbeddingConfig{
+			//EmbeddingBatchSize: getEnvInt("DOC_EMBEDDING_BATCH_SIZE", 10),
+			ChunkSize:      getEnvInt("DOC_CHUNK_SIZE", 300),
+			MinChunkSize:   getEnvInt("DOC_MIN_CHUNK_SIZE", 50),
+			ScoreThreshold: getEnvFloat("DOC_SCORE_THRESHOLD", 0.65),
+			NumTopChunks:   getEnvInt("DOC_NUM_TOP_CHUNKS", 10),
 		},
 	}
 
@@ -152,6 +180,15 @@ func getEnvInt(name string, defaultVal int) int {
 	if value, exists := os.LookupEnv(name); exists {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultVal
+}
+
+func getEnvFloat(name string, defaultVal float64) float64 {
+	if value, exists := os.LookupEnv(name); exists {
+		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
+			return floatValue
 		}
 	}
 	return defaultVal

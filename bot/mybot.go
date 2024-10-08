@@ -3,9 +3,9 @@ package bot
 import (
 	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/document"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/service"
-	"crossplatform_chatbot/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -25,8 +25,11 @@ type GeneralBot interface {
 type generalBot struct {
 	// Add any common fields if necessary, like configuration
 	*BaseBot
-	ctx  context.Context
-	conf config.BotConfig
+	ctx          context.Context
+	conf         config.BotConfig
+	embConfig    config.EmbeddingConfig
+	openAIclient *openai.Client
+
 	//config map[string]string
 }
 
@@ -37,9 +40,11 @@ func NewGeneralBot(conf *config.Config, service *service.Service) (*generalBot, 
 	}
 
 	return &generalBot{
-		BaseBot: baseBot,
-		conf:    conf.BotConfig,
-		ctx:     context.Background(),
+		BaseBot:      baseBot,
+		conf:         conf.BotConfig,
+		embConfig:    conf.EmbeddingConfig,
+		ctx:          context.Background(),
+		openAIclient: openai.NewClient(),
 	}, nil
 }
 
@@ -105,17 +110,19 @@ func (b *generalBot) HandleGeneralMessage(c *gin.Context) {
 // ProcessUserMessage processes incoming messages
 func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 	var response string
-	var err error
+	//var err error
 
 	fmt.Printf("Received message %s \n", message)
 	fmt.Printf("Chat ID: %s \n", sessionID)
 
 	if strings.HasPrefix(message, "/") {
-		response, err = handleCommand("", message, b) // TODO: Add ChatID instead of empty string
+
+		response = handleCommand(message)
+		/*response, err = handleCommand(sessionID, message, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
-		}
+		}*/
 	} else if screaming && len(message) > 0 {
 		response = strings.ToUpper(message)
 	} else {
@@ -126,7 +133,7 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 			response = "Error retrieving document embeddings."
 		} else if useOpenAI {
 			// Perform similarity matching with the user's message
-			topChunks, err := utils.RetrieveTopNChunks(message, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks
+			topChunks, err := document.RetrieveTopNChunks(message, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold) // Retrieve top 3 relevant chunks
 			if err != nil {
 				fmt.Printf("Error retrieving document chunks: %v", err)
 				response = "Error retrieving related document information."
@@ -211,7 +218,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return fmt.Errorf("invalid identifier for frontend or platform")
 }
 
-func (b *generalBot) sendMenu(identifier interface{}) error {
+/*func (b *generalBot) sendMenu(identifier interface{}) error {
 	if sessionID, ok := identifier.(string); ok {
 		// Logic to send menu to the frontend user TODO
 		// For example, return a message to the frontend via the API response
@@ -219,15 +226,39 @@ func (b *generalBot) sendMenu(identifier interface{}) error {
 		return nil
 	}
 	return fmt.Errorf("invalid identifier type for frontend platform")
-}
+}*/
 
-func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, minChunkSize int) error {
-	// Chunk the document using the chunking logic (smart chunking in this case)
-	chunks := utils.ChunkSmartly(text, chunkSize, minChunkSize)
+/*func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) error {
+	// Chunk the document using the semantic chunking logic
+	chunks, chunkEmbeddings, err := utils.SemanticChunk(text, 0.3) // Now returns both chunks and their embeddings
+	if err != nil {
+		return fmt.Errorf("error splitting chunks: %v", err)
+	}
+
+	// Store each chunk and its embedding in the database
+	for i, chunk := range chunks {
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+
+		// Store the chunk and its embedding
+		err := b.Service.StoreDocumentEmbedding(chunkID, chunk, chunkEmbeddings[i])
+		if err != nil {
+			return fmt.Errorf("error storing chunk %d: %v", i, err)
+		}
+	}
+
+	fmt.Println("Document embedding and storage complete.")
+	return nil
+}*/
+
+func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) error {
+	// Chunk the document with overlap
+	chunks := document.OverlapChunk(text, chunkSize, overlap)
+
+	//client := openai.NewClient()
 
 	for i, chunk := range chunks {
 		// Get the embeddings for each chunk
-		embedding, err := openai.EmbedDocument(chunk)
+		embedding, err := b.openAIclient.EmbedText(chunk)
 		if err != nil {
 			return fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
@@ -241,17 +272,41 @@ func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize in
 	return nil
 }
 
+/*func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, minChunkSize int) error {
+	// Chunk the document using the chunking logic
+	chunks, err := utils.SemanticChunk(text, 0.5)
+	//chunks := utils.ChunkSmartly(text, chunkSize, minChunkSize)
+	if err != nil {
+		return fmt.Errorf("error splitting chunks: %v", err)
+	}
+
+	for i, chunk := range chunks {
+		// Get the embeddings for each chunk
+		embedding, err := openai.EmbedText(chunk)
+		if err != nil {
+			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+
+		// Create a unique chunk ID for storage in the database
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		// Store each chunk and its embedding
+		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+	}
+	fmt.Println("Document embedding complete.")
+	return nil
+}*/
+
 func (b *generalBot) ProcessDocument(sessionID string, filePath string) error {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
-	docText, err := downloadAndExtractText(filePath)
+	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
 		return fmt.Errorf("error processing document: %w", err)
 	}
 
 	// Store document chunks and their embeddings
-	chunkSize := 500
-	minChunkSize := 50
-	err = b.StoreDocumentChunks(sessionID, docText, chunkSize, minChunkSize)
+	//chunkSize := 300
+	//minChunkSize := 50
+	err = b.StoreDocumentChunks(sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
 	if err != nil {
 		return fmt.Errorf("error storing document chunks: %w", err)
 	}

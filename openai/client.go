@@ -5,36 +5,35 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/go-resty/resty/v2"
 )
 
 // Struct to hold OpenAI API client configuration
 type Client struct {
-	ApiKey string
-	Client *resty.Client
+	ApiKey   string
+	MsgModel string
+	EmbModel string
+	Client   *resty.Client
 }
 
 // Function to create a new OpenAI client
 func NewClient() *Client {
 	conf := config.GetConfig()
-	apiKey := conf.OpenaiAPIKey
-	if apiKey == "" {
-		log.Fatal("OpenAI API key not found in environment variables")
-	}
 
 	client := resty.New()
 	return &Client{
-		ApiKey: apiKey,
-		Client: client,
+		ApiKey:   conf.OpenaiAPIKey,
+		MsgModel: conf.OpenaiMsgModel,
+		EmbModel: conf.OpenaiEmbModel,
+		Client:   client,
 	}
 }
 
 // Function to get a response from the OpenAI API
 func (c *Client) GetResponse(prompt string) (string, error) {
 	request := map[string]interface{}{
-		"model":       "gpt-4",                                                  // Specify model type here (gpt-3.5-turbo, gpt-4o-mini, chatgpt-4o, gpt-4)
+		"model":       c.MsgModel,                                               // Specify model type (gpt-3.5-turbo, gpt-4o-mini, chatgpt-4o, gpt-4)
 		"messages":    []map[string]string{{"role": "user", "content": prompt}}, // Adjusted for chat models
 		"max_tokens":  250,
 		"temperature": 0.7,
@@ -45,7 +44,7 @@ func (c *Client) GetResponse(prompt string) (string, error) {
 		SetHeader("Authorization", "Bearer "+c.ApiKey).
 		SetHeader("Content-Type", "application/json").
 		SetBody(request).
-		Post("https://api.openai.com/v1/chat/completions") // Ensure the correct endpoint
+		Post("https://api.openai.com/v1/chat/completions") // TODO move to env?
 
 	if err != nil {
 		return "", fmt.Errorf("error sending request to OpenAI: %v", err)

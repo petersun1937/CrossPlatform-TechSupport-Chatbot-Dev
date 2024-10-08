@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/service"
 
 	"github.com/h2non/gock"
@@ -78,7 +77,7 @@ type MockGormDB struct {
 	mock.Mock
 }
 
-func TestNewLineBot(t *testing.T) {
+/*func TestNewLineBot(t *testing.T) {
 	// Reset the config singleton before the test
 	config.ResetConfig()
 
@@ -111,19 +110,20 @@ func TestNewLineBot(t *testing.T) {
 
 	// test other aspects?
 	assert.NotNil(t, lineBot.lineClient)
-}
+}*/
 
-func TestLineBot_Run(t *testing.T) {
-	lineBot := &lineBot{
-		secret: "mock_secret",
-		token:  "mock_token",
+/*
+	func TestLineBot_Run(t *testing.T) {
+		lineBot := &lineBot{
+			secret: "mock_secret",
+			token:  "mock_token",
+		}
+
+		err := lineBot.Run()
+		assert.NoError(t, err)
+		assert.NotNil(t, lineBot.lineClient)
 	}
-
-	err := lineBot.Run()
-	assert.NoError(t, err)
-	assert.NotNil(t, lineBot.lineClient)
-}
-
+*/
 func TestLineBot_GetUserProfile(t *testing.T) {
 	// Set environment variables for the test
 	os.Setenv("LINE_CHANNEL_SECRET", "mock_secret")

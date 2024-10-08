@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/document"
 	"crossplatform_chatbot/models"
 	"crossplatform_chatbot/service"
-	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -160,7 +160,7 @@ func (b *fbBot) validateAndGenerateToken(userID string) (*string, error) {
 
 // getUserProfile retrieves the user profile information from Facebook
 func (b *fbBot) getUserProfile(userID string) (*service.UserProfile, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken)
+	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken) // TODO move url to env
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -189,11 +189,12 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 
 	// Check if the message is a command (starts with "/")
 	if strings.HasPrefix(text, "/") {
-		response, err = handleCommand(senderID, text, b)
+		response = handleCommand(text)
+		/*response, err = handleCommand(senderID, text, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
-		}
+		}*/
 	} else if screaming && len(text) > 0 {
 		// Check for a "screaming" mode if applicable (uppercase response)
 		response = strings.ToUpper(text)
@@ -205,7 +206,7 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 			response = "Error retrieving document embeddings."
 		} else if useOpenAI {
 			// Perform similarity matching with the user's message
-			topChunks, err := utils.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
+			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
 			if err != nil {
 				fmt.Printf("Error retrieving document chunks: %v", err)
 				response = "Error retrieving related document information."
@@ -300,6 +301,7 @@ func (b *fbBot) sendResponse(recipientID interface{}, messageText string) error 
 	return nil
 }
 
+/*
 func (b *fbBot) sendMenu(identifier interface{}) error {
 	if senderID, ok := identifier.(string); ok {
 		return b.sendMessengerMenu(senderID)
@@ -371,4 +373,4 @@ func (b *fbBot) sendMessengerMenu(senderID string) error {
 
 	fmt.Printf("Menu sent successfully to %s\n", senderID)
 	return nil
-}
+}*/

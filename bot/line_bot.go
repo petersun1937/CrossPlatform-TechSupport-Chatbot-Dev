@@ -22,9 +22,9 @@ type LineBot interface {
 
 type lineBot struct {
 	*BaseBot
-	conf       config.BotConfig
-	secret     string
-	token      string
+	conf config.BotConfig
+	//secret     string
+	//token      string
 	lineClient *linebot.Client
 	service    *service.Service
 }
@@ -41,10 +41,10 @@ func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error)
 	}
 
 	return &lineBot{
-		BaseBot:    baseBot,
-		conf:       conf.BotConfig, //TODO: remove the other configs
-		secret:     conf.LineChannelSecret,
-		token:      conf.LineChannelToken,
+		BaseBot: baseBot,
+		conf:    conf.BotConfig,
+		//secret:     conf.LineChannelSecret,
+		//token:      conf.LineChannelToken,
 		lineClient: lineClient,
 		service:    service,
 	}, nil
@@ -56,7 +56,8 @@ func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error)
 
 func (b *lineBot) Run() error {
 	// Initialize Linebot
-	lineClient, err := linebot.New(b.secret, b.token) // create new BotAPI instance using the channel token and secret
+	//lineClient, err := linebot.New(b.secret, b.token)
+	lineClient, err := linebot.New(b.conf.LineChannelSecret, b.conf.LineChannelToken) // create new BotAPI instance using the channel token and secret
 	if err != nil {
 		return err
 	}
@@ -162,10 +163,11 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) (string,
 	var err error
 
 	if strings.HasPrefix(text, "/") {
-		response, err = handleCommand(event, text, b)
+		response = handleCommand(text)
+		/*response, err = handleCommand(event, text, b)
 		if err != nil {
 			return "An error occurred while processing your command.", err
-		}
+		}*/
 	} else if screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
 	} else if useOpenAI {
@@ -222,7 +224,7 @@ func (b *lineBot) ParseRequest(req *http.Request) ([]*linebot.Event, error) {
 	return b.lineClient.ParseRequest(req)
 }
 
-func (b *lineBot) sendMenu(identifier interface{}) error {
+/*func (b *lineBot) sendMenu(identifier interface{}) error {
 	if event, ok := identifier.(*linebot.Event); ok {
 		return b.sendLineMenu(event.ReplyToken)
 	} else {
@@ -243,4 +245,4 @@ func (b *lineBot) sendLineMenu(replyToken string) error {
 		return fmt.Errorf("error sending LINE menu: %w", err)
 	}
 	return nil
-}
+}*/

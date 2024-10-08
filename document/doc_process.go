@@ -1,4 +1,4 @@
-package bot
+package document
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 )
 
 // downloadAndExtractText handles both local files and remote URLs, including .txt, .docx, and .pdf
-func downloadAndExtractText(filePathOrURL string) (string, error) {
+func DownloadAndExtractText(filePathOrURL string) (string, error) {
 	// Check the file type based on the extension
 	if strings.HasSuffix(filePathOrURL, ".txt") {
 		return readLocalFile(filePathOrURL) // TXT
@@ -146,7 +146,7 @@ func extractTextFromPDF(filePath string) (string, error) {
 
 //var documentEmbeddings = make(map[string][]float64)
 
-func ChunkDocument(text string, chunkSize int) []string {
+/*func ChunkDocument(text string, chunkSize int) []string {
 	words := strings.Fields(text) // Split the document into words
 	var chunks []string
 	for i := 0; i < len(words); i += chunkSize {
@@ -158,4 +158,4 @@ func ChunkDocument(text string, chunkSize int) []string {
 	}
 	fmt.Printf("Document chunked into %d chunks.\n", len(chunks)) // Log the chunk count
 	return chunks
-}
+}*/

@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/document"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/service"
-	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,10 +30,12 @@ type TgBot interface {
 
 type tgBot struct {
 	*BaseBot
-	conf   config.BotConfig
-	ctx    context.Context
-	token  string
-	botApi *tgbotapi.BotAPI
+	conf         config.BotConfig
+	embConfig    config.EmbeddingConfig
+	ctx          context.Context
+	token        string
+	botApi       *tgbotapi.BotAPI
+	openAIclient *openai.Client
 	//service *service.Service
 }
 
@@ -56,11 +58,13 @@ func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
 
 	// Initialize and return tgBot instance
 	return &tgBot{
-		BaseBot: baseBot,
-		conf:    conf.BotConfig,
-		ctx:     context.Background(),
-		token:   conf.TelegramBotToken,
-		botApi:  botApi,
+		BaseBot:      baseBot,
+		conf:         conf.BotConfig,
+		embConfig:    conf.EmbeddingConfig,
+		ctx:          context.Background(),
+		token:        conf.TelegramBotToken,
+		botApi:       botApi,
+		openAIclient: openai.NewClient(),
 	}, nil
 
 }
@@ -135,10 +139,10 @@ func (b *tgBot) HandleTelegramUpdate(update tgbotapi.Update) {
 			// Otherwise, handle regular text messages
 			b.handleTgMessage(update.Message)
 		}
-	} else if update.CallbackQuery != nil {
+	} /*else if update.CallbackQuery != nil {
 		// Handle button interactions (callback queries)
 		b.handleButton(update.CallbackQuery)
-	}
+	}*/
 }
 
 // Handle Telegram messages
@@ -212,14 +216,15 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 	fmt.Printf("Chat ID: %d \n", chatID)
 
 	var response string
-	var err error
+	//var err error
 
 	if strings.HasPrefix(text, "/") {
-		response, err = handleCommand(chatID, text, b)
+		response = handleCommand(text)
+		/*response, err = handleCommand(chatID, text, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
-		}
+		}*/
 	} else if screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
 	} else {
@@ -229,8 +234,9 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
 		} else if useOpenAI {
+			//conf := config.GetConfig()
 			// Perform similarity matching with the user's message when OpenAI is enabled
-			topChunksText, err := utils.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Returns maximum N chunks with similarity threshold
+			topChunksText, err := document.RetrieveTopNChunks(text, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold) // Returns maximum N chunks with similarity threshold
 			if err != nil {
 				fmt.Printf("Error retrieving document chunks: %v", err)
 				response = "Error retrieving related document information."
@@ -315,8 +321,9 @@ func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
 func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
 	// Use the Telegram API URL from the config
-	conf := config.GetConfig()
-	url := conf.TelegramAPIURL + b.token + "/sendMessage"
+	url := b.conf.TelegramAPIURL + b.token + "/sendMessage"
+	//conf := config.GetConfig()
+	//url := conf.TelegramAPIURL + b.token + "/sendMessage"
 
 	// Create the message payload
 	message := map[string]interface{}{
@@ -350,6 +357,52 @@ func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
 	return nil
 }
 
+func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
+	// Get the file ID and file URL from the uploaded document
+	fileID := update.Message.Document.FileID
+	fileURL, err := b.botApi.GetFileDirectURL(fileID)
+	if err != nil {
+		b.sendTelegramMessage(update.Message.Chat.ID, "Error getting file: "+err.Error())
+		return
+	}
+
+	// Download and extract text from the document
+	docText, err := document.DownloadAndExtractText(fileURL)
+	if err != nil {
+		b.sendTelegramMessage(update.Message.Chat.ID, "Error processing document: "+err.Error())
+		return
+	}
+
+	// Store document chunks and their embeddings
+	chunkSize := 200 // Set chunk size as needed (e.g., 200 words)
+	minchunkSize := 50
+	err = b.StoreDocumentChunks(fileID, docText, chunkSize, minchunkSize)
+	if err != nil {
+		b.sendTelegramMessage(update.Message.Chat.ID, "Error storing document chunks: "+err.Error())
+		return
+	}
+
+	b.sendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
+}
+
+func (b *tgBot) StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error {
+	//chunks := ChunkDocument(text, chunkSize)
+	//chunks := utils.ChunkDocumentBySentence(text, chunkSize)
+	chunks := document.ChunkSmartly(text, chunkSize, minchunkSize)
+
+	for i, chunk := range chunks {
+		embedding, err := b.openAIclient.EmbedText(chunk)
+		if err != nil {
+			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding) // Store each chunk with its embedding
+	}
+	fmt.Println("Document embedding complete.")
+	return nil
+}
+
+/*
 // Menu texts
 var (
 	firstMenu  = "<b>Menu 1</b>\n\nA beautiful menu with a shiny inline button."
@@ -420,47 +473,4 @@ func (b *tgBot) sendTGMenu(chatID int64) error {
 	}
 	return nil
 }
-
-func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
-	// Get the file ID and file URL from the uploaded document
-	fileID := update.Message.Document.FileID
-	fileURL, err := b.botApi.GetFileDirectURL(fileID)
-	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error getting file: "+err.Error())
-		return
-	}
-
-	// Download and extract text from the document
-	docText, err := downloadAndExtractText(fileURL)
-	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error processing document: "+err.Error())
-		return
-	}
-
-	// Store document chunks and their embeddings
-	chunkSize := 200 // Set chunk size as needed (e.g., 200 words)
-	minchunkSize := 50
-	err = b.StoreDocumentChunks(fileID, docText, chunkSize, minchunkSize)
-	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error storing document chunks: "+err.Error())
-		return
-	}
-
-	b.sendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
-}
-
-func (b *tgBot) StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error {
-	//chunks := ChunkDocument(text, chunkSize)
-	//chunks := utils.ChunkDocumentBySentence(text, chunkSize)
-	chunks := utils.ChunkSmartly(text, chunkSize, minchunkSize)
-	for i, chunk := range chunks {
-		embedding, err := openai.EmbedDocument(chunk)
-		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
-		}
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding) // Store each chunk with its embedding
-	}
-	fmt.Println("Document embedding complete.")
-	return nil
-}
+*/

@@ -17,9 +17,10 @@ var screaming bool
 var useOpenAI bool = true // Default to using Dialogflow
 
 // Process the commands sent by users and returns the message as a string
-func handleCommand(identifier interface{}, command string, bot Bot) (string, error) {
+// func handleCommand(identifier interface{}, command string, bot Bot) (string, error) {
+func handleCommand(command string) string {
 	var message string
-	var err error
+	//var err error
 
 	switch command {
 	case "/start":
@@ -32,31 +33,31 @@ func handleCommand(identifier interface{}, command string, bot Bot) (string, err
 		message = "Scream mode disabled!"
 	case "/openai":
 		useOpenAI = true
-		return "Switched to OpenAI for responses.", nil
+		return "Switched to OpenAI for responses."
 	case "/dialogflow":
 		useOpenAI = false
-		return "Switched to Dialogflow for responses.", nil
-	case "/menu":
-		// Handle menu sending based on platform
-		/*switch platform {
-		case LINE:
-			if event, ok := identifier.(*linebot.Event); ok {
-				err = sendLineMenu(event.ReplyToken) // Send a menu to LINE
-			} else {
-				err = fmt.Errorf("invalid identifier type for LINE platform")
-			}
-		case TELEGRAM:
-			if chatID, ok := identifier.(int64); ok {
-				err = sendMenu(chatID) // Send a menu to Telegram
-			} else {
-				err = fmt.Errorf("invalid identifier type for Telegram platform")
-			}
-		}*/
-		err = bot.sendMenu(identifier)
-		if err != nil {
-			return "", err
-		}
-		return "", nil
+		return "Switched to Dialogflow for responses."
+	// case "/menu":
+	// 	// Handle menu sending based on platform
+	// 	/*switch platform {
+	// 	case LINE:
+	// 		if event, ok := identifier.(*linebot.Event); ok {
+	// 			err = sendLineMenu(event.ReplyToken) // Send a menu to LINE
+	// 		} else {
+	// 			err = fmt.Errorf("invalid identifier type for LINE platform")
+	// 		}
+	// 	case TELEGRAM:
+	// 		if chatID, ok := identifier.(int64); ok {
+	// 			err = sendMenu(chatID) // Send a menu to Telegram
+	// 		} else {
+	// 			err = fmt.Errorf("invalid identifier type for Telegram platform")
+	// 		}
+	// 	}*/
+	// 	err = bot.sendMenu(identifier)
+	// 	if err != nil {
+	// 		return "", err
+	// 	}
+	// 	return "", nil
 	case "/help":
 		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu. You can also type /openai for GPT-based responses, and /dialogflow to switch to rule-based Dialogflow responses!"
 	case "/custom":
@@ -65,7 +66,7 @@ func handleCommand(identifier interface{}, command string, bot Bot) (string, err
 		message = "I don't know that command"
 	}
 
-	return message, nil
+	return message
 }
 
 // handleMessageDialogflow handles messages from different platforms

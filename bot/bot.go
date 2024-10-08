@@ -10,7 +10,7 @@ import (
 type Bot interface {
 	Run() error
 
-	sendMenu(identifier interface{}) error
+	//sendMenu(identifier interface{}) error
 	sendResponse(identifier interface{}, message string) error
 	handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error
 }

@@ -1,3 +1,8 @@
 # Ignore log files
 *.log
 crossplatform_chatbot.private
+
+# Ignore test documents
+*.txt
+*.pdf
+*.docx
