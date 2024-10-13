@@ -2,10 +2,11 @@ package bot
 
 import (
 	"context"
-	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/document"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/service"
+
+	// "crossplatform_chatbot/service"
 	"fmt"
 	"net/http"
 	"strings"
@@ -108,7 +109,7 @@ func (b *generalBot) HandleGeneralMessage(c *gin.Context) {
 }
 
 // ProcessUserMessage processes incoming messages
-func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
+func (b *generalBot) ProcessUserMessage(sessionID string, message string, documentEmbeddings map[string]string) {
 	var response string
 	//var err error
 
@@ -250,7 +251,16 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return nil
 }*/
 
-func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) error {
+type DocumentChunk struct {
+	DocID     string
+	DocText   string
+	Embedding []float64
+}
+
+func (b *generalBot) CalcDocumentChunks(docID string, text string, chunkSize int, overlap int) ([]DocumentChunk, error) {
+	// func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) ([]DocumentChunk, error) {
+	embeddings := make([]DocumentChunk, 0)
+
 	// Chunk the document with overlap
 	chunks := document.OverlapChunk(text, chunkSize, overlap)
 
@@ -260,16 +270,22 @@ func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize in
 		// Get the embeddings for each chunk
 		embedding, err := b.openAIclient.EmbedText(chunk)
 		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+			return nil, fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
 
 		// Create a unique chunk ID for storage in the database
 		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
 		// Store each chunk and its embedding
-		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+		// b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+
+		embeddings = append(embeddings, DocumentChunk{
+			DocID:     chunkID,
+			DocText:   chunk,
+			Embedding: embedding,
+		})
 	}
 	fmt.Println("Document embedding complete.")
-	return nil
+	return embeddings, nil
 }
 
 /*func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, minChunkSize int) error {

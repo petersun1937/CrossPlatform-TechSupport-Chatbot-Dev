@@ -2,8 +2,8 @@ package bot
 
 import (
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/models"
-	"crossplatform_chatbot/service"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,48 +21,60 @@ type LineBot interface {
 }
 
 type lineBot struct {
-	*BaseBot
-	conf config.BotConfig
-	//secret     string
-	//token      string
+	BaseBot
 	lineClient *linebot.Client
-	service    *service.Service
 }
 
-func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error) {
+func V2NewLineBot(conf config.BotConfig, database database.Database) (*lineBot, error) {
 	lineClient, err := linebot.New(conf.LineChannelSecret, conf.LineChannelToken)
 	if err != nil {
 		return nil, err
 	}
 
-	baseBot := &BaseBot{
-		Platform: LINE,
-		Service:  service,
-	}
-
 	return &lineBot{
-		BaseBot: baseBot,
-		conf:    conf.BotConfig,
-		//secret:     conf.LineChannelSecret,
-		//token:      conf.LineChannelToken,
+		BaseBot: BaseBot{
+			Platform: LINE,
+			conf:     conf,
+			database: database,
+		},
 		lineClient: lineClient,
-		service:    service,
 	}, nil
-	/*return &lineBot{
-		secret: conf.GetLineSecret(),
-		token:  conf.GetLineToken(),
-	}*/
 }
+
+// func NewLineBot(conf *config.Config, service *service.Service) (*lineBot, error) {
+// 	lineClient, err := linebot.New(conf.LineChannelSecret, conf.LineChannelToken)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	baseBot := &BaseBot{
+// 		Platform: LINE,
+// 		Service:  service,
+// 	}
+
+// 	return &lineBot{
+// 		BaseBot: baseBot,
+// 		conf:    conf.BotConfig,
+// 		//secret:     conf.LineChannelSecret,
+// 		//token:      conf.LineChannelToken,
+// 		lineClient: lineClient,
+// 		service:    service,
+// 	}, nil
+// 	/*return &lineBot{
+// 		secret: conf.GetLineSecret(),
+// 		token:  conf.GetLineToken(),
+// 	}*/
+// }
 
 func (b *lineBot) Run() error {
 	// Initialize Linebot
 	//lineClient, err := linebot.New(b.secret, b.token)
-	lineClient, err := linebot.New(b.conf.LineChannelSecret, b.conf.LineChannelToken) // create new BotAPI instance using the channel token and secret
-	if err != nil {
-		return err
-	}
+	// lineClient, err := linebot.New(b.conf.LineChannelSecret, b.conf.LineChannelToken) // create new BotAPI instance using the channel token and secret
+	// if err != nil {
+	// 	return err
+	// }
 
-	b.lineClient = lineClient
+	// b.lineClient = lineClient
 
 	// Start the bot with webhook
 	fmt.Println("Line bot is running with webhook!")
@@ -71,7 +83,6 @@ func (b *lineBot) Run() error {
 }
 
 func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
-
 	// Retrieve and validate user profile
 	userProfile, err := b.getUserProfile(event.Source.UserID)
 	if err != nil {
@@ -118,7 +129,7 @@ func (b *lineBot) getUserProfile(userID string) (*linebot.UserProfileResponse, e
 // validateAndGenerateToken checks if the user exists and generates a token if not
 func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileResponse, event *linebot.Event, userID string) (bool, error) {
 	var dbUser models.User
-	err := b.service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+	err := b.database.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			dbUser = models.User{
@@ -130,12 +141,12 @@ func (b *lineBot) validateAndGenerateToken(userProfile *linebot.UserProfileRespo
 			}
 
 			// Create the new user record in the database
-			if err := b.service.GetDB().Create(&dbUser).Error; err != nil {
+			if err := b.database.GetDB().Create(&dbUser).Error; err != nil {
 				return false, fmt.Errorf("error creating user: %w", err)
 			}
 
 			// Generate a JWT token using the service's ValidateUser method
-			token, err := b.service.ValidateUser(userID, service.ValidateUserReq{
+			token, err := b.???.ValidateUser(userID, service.ValidateUserReq{
 				FirstName:    "", // LINE doesn't provide first and last names
 				LastName:     "", // LINE doesn't provide first and last names
 				UserName:     userProfile.DisplayName,

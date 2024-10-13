@@ -15,4 +15,5 @@ type DocumentEmbedding struct {
 	DocText   string
 	//Embedding []float64 `gorm:"type:float8[]"`
 	Embedding string `gorm:"type:float8[]"` // Store as a string and ensure it's passed correctly
+	// Embedding2 pq.Float64Array `gorm:"type:float[]"`  // Store as a string and ensure it's passed correctly
 }

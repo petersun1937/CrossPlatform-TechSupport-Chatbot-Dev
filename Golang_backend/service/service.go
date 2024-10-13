@@ -1,6 +1,8 @@
 package service
 
 import (
+	"crossplatform_chatbot/bot"
+	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/models"
 	"crossplatform_chatbot/utils"
@@ -14,11 +16,67 @@ import (
 
 type Service struct {
 	database database.Database
+	bots     map[string]bot.Bot
 }
 
-func NewService(database database.Database) *Service {
+func NewService(botConfig config.BotConfig, database database.Database) *Service {
 	return &Service{
+		bots:     createBots(botConfig, database),
 		database: database,
+	}
+}
+
+func (s *Service) Init() error {
+	// running bots
+	for _, bot := range s.bots {
+		if err := bot.Run(); err != nil {
+			// log.Fatal("running bot failed:", err)
+			fmt.Printf("running bot failed: %s", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) GetBot(tag string) bot.Bot {
+	return s.bots[tag]
+}
+
+func createBots(botConfig config.BotConfig, database database.Database) map[string]bot.Bot {
+	// Initialize bots
+	lineBot, err := bot.V2NewLineBot(botConfig, database)
+	if err != nil {
+		//log.Fatal("Failed to initialize LINE bot:", err)
+		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+	}
+
+	// tgBot, err := bot.NewTGBot(conf, srv)
+	// if err != nil {
+	// 	//log.Fatal("Failed to initialize Telegram bot:", err)
+	// 	fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+	// }
+
+	// fbBot, err := bot.NewFBBot(conf, srv)
+	// if err != nil {
+	// 	log.Fatalf("Failed to create Facebook bot: %v", err)
+	// }
+
+	// igBot, err := bot.NewIGBot(conf, srv)
+	// if err != nil {
+	// 	log.Fatalf("Failed to create Instagram bot: %v", err)
+	// }
+
+	// generalBot, err := bot.NewGeneralBot(conf, srv)
+	// if err != nil {
+	// 	log.Fatalf("Failed to initialize General bot: %v", err)
+	// }
+
+	return map[string]bot.Bot{
+		"line": lineBot,
+		// "tg":      tgBot,
+		// "fb":      fbBot,
+		// "ig":      igBot,
+		// "general": generalBot,
 	}
 }
 
@@ -100,6 +158,10 @@ func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding
 // CreateDocumentEmbedding stores a document embedding in the database
 func (r *Repository) CreateDocumentEmbedding(docEmbedding *models.DocumentEmbedding) error {
 	return r.database.GetDB().Create(docEmbedding).Error
+}
+
+func (r *Repository) BatchCreateDocumentEmbedding(docEmbeddings []*models.DocumentEmbedding) error {
+	return r.database.GetDB().Create(docEmbeddings).Error
 }
 
 func sanitizeText(input string) string {

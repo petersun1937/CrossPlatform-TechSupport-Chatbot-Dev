@@ -12,6 +12,22 @@ import (
 	"github.com/line/line-bot-sdk-go/linebot"
 )
 
+func (h *Handler) V2HandleLineWebhook(c *gin.Context) {
+	if err := h.Service.HandleLine(c.Request); err != nil {
+		// If the request has an invalid signature, return a 400 Bad Request error
+		if err == linebot.ErrInvalidSignature {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid signature"})
+			return
+		}
+		// If there is any other error during parsing, return a 500 Internal Server Error
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse request"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
+
 // HandleLineWebhook handles incoming POST requests from the Line platform
 func HandleLineWebhook(c *gin.Context, lineBot bot.LineBot) {
 	// Parse the incoming request from the Line platform and extract the events

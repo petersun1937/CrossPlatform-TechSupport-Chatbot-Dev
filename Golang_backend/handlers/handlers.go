@@ -2,11 +2,22 @@ package handlers
 
 import (
 	"crossplatform_chatbot/bot"
+	"crossplatform_chatbot/service"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+type Handler struct {
+	Service *service.Service
+}
+
+func NewHandler(service *service.Service) *Handler {
+	return &Handler{
+		Service: service,
+	}
+}
 
 // HandleGeneralWebhook handles incoming POST requests from the frontend
 func HandlerGeneralBot(c *gin.Context, b bot.GeneralBot) {

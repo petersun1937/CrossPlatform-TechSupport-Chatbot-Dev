@@ -3,24 +3,30 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 
 	config "crossplatform_chatbot/configs"
-	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/handlers"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Server struct {
-	svrcfg config.ServerConfig
-	srv    *service.Service
-	conf   *config.Config
+	svrcfg  config.ServerConfig
+	handler *handlers.Handler
+	// srv     *service.Service
+	// conf   *config.Config
+	router *gin.Engine
 }
 
-func New(svrcfg config.ServerConfig, srv *service.Service, conf *config.Config) *Server {
+func New(svrcfg config.ServerConfig, handler *handlers.Handler) *Server {
 	return &Server{
 		svrcfg: svrcfg,
-		srv:    srv,
-		conf:   conf,
+		// srv:     srv,
+		handler: handler,
+		// conf:   conf,
 	}
 }
 
@@ -45,23 +51,46 @@ func (s *Server) Start() error {
 		return nil
 	}
 */
-func (s *Server) Start(app *App) error {
+// func (s *Server) Start(app *App) error {
 
+// 	fmt.Println("Initializing server routes")
+// 	//router := gin.Default()
+
+// 	// Initialize routes
+// 	app.InitRoutes(app.Router, s.conf, s.srv)
+
+// 	// Run the routes
+// 	fmt.Println("Starting the server on port", s.svrcfg.Port)
+// 	err := app.Router.Run("0.0.0.0:" + strconv.Itoa(s.svrcfg.Port)) // Binding to 0.0.0.0
+// 	//err := router.Run("0.0.0.0:8080") // Binding to 0.0.0.0
+// 	if err != nil {
+// 		return fmt.Errorf("failed to start server: %w", err)
+// 	}
+// 	fmt.Println("Server started and running...")
+// 	return nil
+// }
+
+func (s *Server) V2Start() {
+	// Run Gin Server
 	fmt.Println("Initializing server routes")
 	//router := gin.Default()
 
 	// Initialize routes
-	app.InitRoutes(app.Router, s.conf, s.srv)
+	s.V2InitRoutes(s.handler)
 
 	// Run the routes
 	fmt.Println("Starting the server on port", s.svrcfg.Port)
-	err := app.Router.Run("0.0.0.0:" + strconv.Itoa(s.svrcfg.Port)) // Binding to 0.0.0.0
+	err := s.router.Run("0.0.0.0:" + strconv.Itoa(s.svrcfg.Port)) // Binding to 0.0.0.0
 	//err := router.Run("0.0.0.0:8080") // Binding to 0.0.0.0
 	if err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+		log.Fatal("Failed to start server:", err)
 	}
 	fmt.Println("Server started and running...")
-	return nil
+
+	// Init Service
+	if err := s.handler.Service.Init(); err != nil {
+		log.Fatal("Failed to initialize service:", err)
+	}
 }
 
 // Gracefully shuts down the HTTP server.
