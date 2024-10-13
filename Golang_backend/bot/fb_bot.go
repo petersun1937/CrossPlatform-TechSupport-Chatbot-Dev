@@ -247,7 +247,7 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 // handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
 func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-	// Check if the recipientID (identifier) is a string (which would be the recipient ID for Facebook)
+	// Check if the ID (identifier) is a string (which would be the sender ID for Facebook)
 	_, ok := identifier.(string)
 	if !ok {
 		return fmt.Errorf("invalid Facebook message identifier")
@@ -265,13 +265,13 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) sendResponse(recipientID interface{}, messageText string) error {
-	conf := config.GetConfig()
-	url := conf.FacebookAPIURL + "/messages?access_token=" + b.pageAccessToken
+func (b *fbBot) sendResponse(senderID interface{}, messageText string) error {
+	//conf := config.GetConfig()
+	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.pageAccessToken
 
 	// Create the message payload
 	messageData := map[string]interface{}{
-		"recipient": map[string]string{"id": recipientID.(string)},
+		"recipient": map[string]string{"id": senderID.(string)},
 		"message":   map[string]string{"text": messageText},
 	}
 
@@ -297,7 +297,7 @@ func (b *fbBot) sendResponse(recipientID interface{}, messageText string) error 
 	}
 	defer resp.Body.Close()
 
-	log.Printf("Message sent successfully to %s", recipientID)
+	log.Printf("Message sent successfully to %s", senderID)
 	return nil
 }
 

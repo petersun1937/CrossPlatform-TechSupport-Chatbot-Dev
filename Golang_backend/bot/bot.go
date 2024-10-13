@@ -27,5 +27,6 @@ const (
 	LINE Platform = iota
 	TELEGRAM
 	FACEBOOK
+	INSTAGRAM
 	GENERAL
 )

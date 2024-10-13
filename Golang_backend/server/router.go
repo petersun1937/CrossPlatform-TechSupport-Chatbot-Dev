@@ -49,6 +49,11 @@ func (app *App) InitRoutes(r *gin.Engine, conf *config.Config, srv *service.Serv
 	app.Router.POST("/messenger/webhook", func(c *gin.Context) {
 		handlers.HandleMessengerWebhook(c, app.Bots["fb"].(bot.FbBot))
 	})
+	// Instagram webhook for verification and message handling
+	app.Router.GET("/instagram/webhook", handlers.VerifyInstagramWebhook) // For webhook verification
+	app.Router.POST("/instagram/webhook", func(c *gin.Context) {
+		handlers.HandleInstagramWebhook(c, app.Bots["ig"].(bot.IgBot))
+	})
 	app.Router.POST("/api/message", func(c *gin.Context) {
 		handlers.HandlerGeneralBot(c, app.Bots["general"].(bot.GeneralBot)) // Pass the generalBot instance here
 	})

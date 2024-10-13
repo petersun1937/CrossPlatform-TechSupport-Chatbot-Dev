@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type App struct { //TODO: app and GetConfig, which one?
+type App struct { //TODO: app or GetConfig for config?
 	Config  *config.Config
 	Service *service.Service // for database operations
 	Router  *gin.Engine

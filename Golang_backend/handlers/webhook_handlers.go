@@ -100,3 +100,43 @@ func VerifyMessengerWebhook(c *gin.Context) {
 		c.String(http.StatusForbidden, "Invalid verification token")
 	}
 }
+
+// HandleInstagramWebhook handles incoming POST requests from Instagram
+func HandleInstagramWebhook(c *gin.Context, igBot bot.IgBot) {
+	var event bot.InstagramEvent // Use the struct from the bot package for Instagram
+
+	if err := c.ShouldBindJSON(&event); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to parse request"})
+		return
+	}
+
+	for _, entry := range event.Entry {
+		for _, msg := range entry.Messaging {
+			senderID := msg.Sender.ID
+
+			// Check if the message text is non-empty
+			if strings.TrimSpace(msg.Message.Text) != "" {
+				messageText := msg.Message.Text
+				igBot.HandleInstagramMessage(senderID, messageText)
+			} else {
+				fmt.Printf("Non-text or empty message received from %s, skipping...\n", senderID)
+			}
+		}
+	}
+
+	c.Status(http.StatusOK)
+}
+
+// VerifyInstagramWebhook verifies the webhook for Instagram Messaging (handles GET request)
+func VerifyInstagramWebhook(c *gin.Context) {
+	// Load verification token from configuration or environment
+	conf := config.GetConfig()
+	verifyToken := conf.InstagramVerifyToken // Use Instagram-specific verify token
+
+	// Check if the verify token matches
+	if c.Query("hub.verify_token") == verifyToken {
+		c.String(http.StatusOK, c.Query("hub.challenge"))
+	} else {
+		c.String(http.StatusForbidden, "Invalid verification token")
+	}
+}
