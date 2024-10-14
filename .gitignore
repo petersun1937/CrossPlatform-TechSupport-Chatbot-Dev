@@ -11,3 +11,6 @@ crossplatform_chatbot.private
 
 # Ignore bak files
 *.bak
+
+# Ignore env files
+.env
