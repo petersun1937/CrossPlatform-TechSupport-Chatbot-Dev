@@ -113,7 +113,6 @@ func HandleInstagramWebhook(c *gin.Context, igBot bot.IgBot) {
 	for _, entry := range event.Entry {
 		for _, msg := range entry.Messaging {
 			senderID := msg.Sender.ID
-			//senderID := msg.Recipient.ID
 
 			// Check if the message text is non-empty
 			if strings.TrimSpace(msg.Message.Text) != "" {

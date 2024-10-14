@@ -21,6 +21,9 @@ type App struct { //TODO: app or GetConfig for config?
 }
 
 func (a App) Run() error {
+	// initialize http server routes from app struct
+	go a.RunRoutes(a.Config, a.Service)
+
 	// running bots
 	for _, bot := range a.Bots {
 		if err := bot.Run(); err != nil {
@@ -29,9 +32,6 @@ func (a App) Run() error {
 			return err
 		}
 	}
-
-	// initialize http server routes from app struct
-	go a.RunRoutes(a.Config, a.Service)
 
 	return nil
 }

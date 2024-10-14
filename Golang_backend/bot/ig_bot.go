@@ -12,15 +12,17 @@ import (
 
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/document"
+	"crossplatform_chatbot/models"
 	"crossplatform_chatbot/service"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	"gorm.io/gorm"
 )
 
 type IgBot interface {
 	Run() error
 	//HandleInstagramWebhook(c *gin.Context, igBot IgBot)
-	HandleInstagramMessage(senderID, messageText string)
+	HandleInstagramMessage(recipientID, messageText string) error
 	//setWebhook(webhookURL string) error
 }
 
@@ -99,96 +101,89 @@ func (b *igBot) HandleInstagramMessage(senderID, messageText string) {
 	log.Printf("Instagram message received from %s: %s\n", senderID, messageText)
 
 	// Validate user and generate a token if necessary
-	/*token, err := b.validateAndGenerateToken(senderID)
+	token, err := b.validateAndGenerateToken(senderID)
 	if err != nil {
 		log.Printf("Error validating user: %s", err.Error())
 		return
-	}*/
+	}
 
 	// If a token is generated for a new user, send it to them
-	//if token != nil {
-	//	b.sendResponse(senderID, "Welcome! Your access token is: "+*token)
-	//} else {
-	// Process the user's message if no token is sent
-	b.processUserMessage(senderID, messageText)
-	//}
+	if token != nil {
+		b.sendResponse(senderID, "Welcome! Your access token is: "+*token)
+	} else {
+		// Process the user's message if no token is sent
+		b.processUserMessage(senderID, messageText)
+	}
 }
 
-// // validateAndGenerateToken checks if the user exists and generates a token if not
-// func (b *igBot) validateAndGenerateToken(userID string) (*string, error) {
-// 	// Retrieve user profile information from Instagram (similar to Facebook logic)
-// 	userProfile, err := b.getUserProfile(userID)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error fetching user profile: %w", err)
-// 	}
+// validateAndGenerateToken checks if the user exists and generates a token if not
+func (b *igBot) validateAndGenerateToken(userID string) (*string, error) {
+	// Retrieve user profile information from Instagram (similar to Facebook logic)
+	userProfile, err := b.getUserProfile(userID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching user profile: %w", err)
+	}
 
-// 	// Check if the user exists in the database
-// 	var dbUser models.User
-// 	err = b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
-// 	if err != nil {
-// 		// If user does not exist, create a new user
-// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-// 			dbUser = models.User{
-// 				UserID:       userID,
-// 				UserName:     userProfile.FirstName + " " + userProfile.LastName, // Combine first and last name
-// 				FirstName:    userProfile.FirstName,
-// 				LastName:     userProfile.LastName,
-// 				LanguageCode: "", // Instagram doesn't provide language directly
-// 			}
+	// Check if the user exists in the database
+	var dbUser models.User
+	err = b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+	if err != nil {
+		// If user does not exist, create a new user
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dbUser = models.User{
+				UserID:       userID,
+				UserName:     userProfile.FirstName + " " + userProfile.LastName, // Combine first and last name
+				FirstName:    userProfile.FirstName,
+				LastName:     userProfile.LastName,
+				LanguageCode: "", // Instagram doesn't provide language directly
+			}
 
-// 			// Create the new user record in the database
-// 			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
-// 				return nil, fmt.Errorf("error creating user: %w", err)
-// 			}
+			// Create the new user record in the database
+			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
+				return nil, fmt.Errorf("error creating user: %w", err)
+			}
 
-// 			// Generate a JWT token using the service's ValidateUser method
-// 			token, err := b.Service.ValidateUser(userID, service.ValidateUserReq{
-// 				FirstName:    userProfile.FirstName,
-// 				LastName:     userProfile.LastName,
-// 				UserName:     "", // Instagram doesn’t provide username directly
-// 				LanguageCode: "", // Instagram doesn’t provide language directly
-// 			})
-// 			if err != nil {
-// 				return nil, fmt.Errorf("error generating JWT: %w", err)
-// 			}
+			// Generate a JWT token using the service's ValidateUser method
+			token, err := b.Service.ValidateUser(userID, service.ValidateUserReq{
+				FirstName:    userProfile.FirstName,
+				LastName:     userProfile.LastName,
+				UserName:     "", // Instagram doesn’t provide username directly
+				LanguageCode: "", // Instagram doesn’t provide language directly
+			})
+			if err != nil {
+				return nil, fmt.Errorf("error generating JWT: %w", err)
+			}
 
-// 			return token, nil // Return the generated token
-// 		}
-// 		return nil, fmt.Errorf("error retrieving user: %w", err)
-// 	}
+			return token, nil // Return the generated token
+		}
+		return nil, fmt.Errorf("error retrieving user: %w", err)
+	}
 
-// 	return nil, nil // User already exists, no token generation needed
-// }
+	return nil, nil // User already exists, no token generation needed
+}
 
-// // getUserProfile retrieves the user profile information from Instagram (similar to Facebook)
-// func (b *igBot) getUserProfile(userID string) (*service.UserProfile, error) {
-// 	// Use Instagram API to fetch user profile details
-// 	url := fmt.Sprintf("https://graph.instagram.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken)
+// getUserProfile retrieves the user profile information from Instagram (similar to Facebook)
+func (b *igBot) getUserProfile(userID string) (*service.UserProfile, error) {
+	// Use Instagram API to fetch user profile details
+	url := fmt.Sprintf("https://graph.instagram.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken)
 
-// 	resp, err := http.Get(url)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error fetching user profile: %w", err)
-// 	}
-// 	defer resp.Body.Close()
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching user profile: %w", err)
+	}
+	defer resp.Body.Close()
 
-// 	/*if resp.StatusCode != http.StatusOK {
-// 		return nil, fmt.Errorf("invalid response from Instagram, status code: %d", resp.StatusCode)
-// 	}*/
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid response from Instagram, status code: %d", resp.StatusCode)
+	}
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		// Print the response body for debugging
-// 		bodyBytes, _ := io.ReadAll(resp.Body)
-// 		bodyString := string(bodyBytes)
-// 		return nil, fmt.Errorf("invalid response from Instagram, status code: %d, response: %s", resp.StatusCode, bodyString)
-// 	}
+	var profile service.UserProfile
+	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+		return nil, fmt.Errorf("error decoding profile response: %w", err)
+	}
 
-// 	var profile service.UserProfile
-// 	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
-// 		return nil, fmt.Errorf("error decoding profile response: %w", err)
-// 	}
-
-// 	return &profile, nil
-// }
+	return &profile, nil
+}
 
 // sendResponse sends a message to the specified user on Instagram
 func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
@@ -247,8 +242,8 @@ func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
 // handleDialogflowResponse processes and sends the Dialogflow response to the Instagram platform
 func (b *igBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-	// Check if the senderID (identifier) is a string (which would be the sender ID for Instagram)
-	senderID, ok := identifier.(string)
+	// Check if the recipientID (identifier) is a string (which would be the recipient ID for Instagram)
+	recipientID, ok := identifier.(string)
 	if !ok {
 		return fmt.Errorf("invalid Instagram message identifier")
 	}
@@ -257,7 +252,7 @@ func (b *igBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Instagram
-			return b.sendResponse(senderID, text.Text[0])
+			return b.sendResponse(recipientID, text.Text[0])
 		}
 	}
 

@@ -44,17 +44,13 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
    ```
 
 - **Backend Setup**:
-   - Ensure Go and Python are installed.
-   - Install the required Python package `pdfplumber`:
-     ```bash
-     pip install pdfplumber
-     ```
+   - Ensure Go is installed.
    - Set up environment variables in the `configs/.env` file (e.g., API keys, database configuration).
    - Navigate to `Golang_backend/`:
      ```bash
      go run main.go
      ```
-
+   - Python
 
 - **Frontend Setup**:
    - Navigate to `React_custom_frontend/`:

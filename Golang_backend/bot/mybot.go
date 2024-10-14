@@ -54,7 +54,7 @@ func (b *generalBot) Run() error {
 	return nil
 }
 
-func (b *generalBot) HandleGeneralMessage(c *gin.Context) { // TODO: some to handler
+func (b *generalBot) HandleGeneralMessage(c *gin.Context) {
 	var req struct {
 		SessionID string `json:"sessionID"`
 		Message   string `json:"message"`

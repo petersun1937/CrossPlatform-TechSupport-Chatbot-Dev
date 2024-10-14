@@ -50,7 +50,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
      pip install pdfplumber
      ```
    - Set up environment variables in the `configs/.env` file (e.g., API keys, database configuration).
-   - Run the script by
+   - Navigate to `Golang_backend/`:
      ```bash
      go run main.go
      ```
