@@ -57,7 +57,7 @@ func HandlerDocumentUpload(c *gin.Context, b bot.GeneralBot) {
 		return
 	}
 
-	// Call bot to process the document
+	// Call bot to process the document  TODO service
 	err = b.ProcessDocument(sessionID, filePath)
 	if err != nil {
 		fmt.Printf("Error processing document: %v", err)
