@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	config "crossplatform_chatbot/configs"
-	"crossplatform_chatbot/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -84,9 +83,9 @@ func (db2 *database) initPostgres() error {
 	}
 
 	// Auto migrate the User schema
-	if err := db.AutoMigrate(&models.User{}); err != nil {
+	/*if err := db.AutoMigrate(&models.User{}); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
-	}
+	}*/
 
 	// Assign the initialized database connection to the db field
 	db2.db = db
