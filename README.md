@@ -73,7 +73,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
       - Ensure Tesseract is accessible through your system's PATH.
 -->
    - **Set up environment variables**:
-      - Create a `.env` file in the `configs/` directory to store environment variables such as API keys and database configurations.
+      - Create a `.env` file in the `configs/` directory to store environment variables such as API keys and database configurations (refer to `sample.env`).
 <!---        
 - Example `.env` file structure:
         ```bash
