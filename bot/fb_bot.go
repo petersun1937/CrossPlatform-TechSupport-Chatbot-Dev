@@ -2,11 +2,10 @@ package bot
 
 import (
 	"bytes"
-	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
-	"crossplatform_chatbot/models"
-	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/repository"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +14,6 @@ import (
 	"strings"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
-	"gorm.io/gorm"
 )
 
 type FbBot interface {
@@ -24,37 +22,55 @@ type FbBot interface {
 }
 
 type fbBot struct {
-	*BaseBot
-	conf            config.BotConfig
-	ctx             context.Context
-	pageAccessToken string
+	BaseBot
+	dao repository.DAO
+	//conf            config.BotConfig
+	//ctx             context.Context
+	//pageAccessToken string
 }
 
 // creates a new FbBot instance
-func NewFBBot(conf *config.Config, service *service.Service) (*fbBot, error) {
+func NewFBBot(conf config.BotConfig, database database.Database, dao repository.DAO) (*fbBot, error) {
 	// Verify that the page access token is available
 	if conf.FacebookPageToken == "" {
 		return nil, errors.New("facebook Page Access Token is not provided")
 	}
 
-	// Initialize the BaseBot structure
-	baseBot := &BaseBot{
-		Platform: FACEBOOK,
-		Service:  service,
-	}
-
-	// Initialize and return the fbBot instance
 	return &fbBot{
-		BaseBot:         baseBot,
-		conf:            conf.BotConfig,
-		ctx:             context.Background(),
-		pageAccessToken: conf.FacebookPageToken,
+		BaseBot: BaseBot{
+			Platform: FACEBOOK,
+			conf:     conf,
+			database: database,
+			dao:      dao,
+		},
 	}, nil
 }
 
+// // creates a new FbBot instance
+// func NewFBBot(conf *config.Config, service *service.Service) (*fbBot, error) {
+// 	// Verify that the page access token is available
+// 	if conf.FacebookPageToken == "" {
+// 		return nil, errors.New("facebook Page Access Token is not provided")
+// 	}
+
+// 	// Initialize the BaseBot structure
+// 	baseBot := &BaseBot{
+// 		Platform: FACEBOOK,
+// 		Service:  service,
+// 	}
+
+// 	// Initialize and return the fbBot instance
+// 	return &fbBot{
+// 		BaseBot:         baseBot,
+// 		conf:            conf.BotConfig,
+// 		ctx:             context.Background(),
+// 		pageAccessToken: conf.FacebookPageToken,
+// 	}, nil
+// }
+
 // Run initializes and starts the Facebook bot with webhook
 func (b *fbBot) Run() error {
-	if b.pageAccessToken == "" {
+	if b.conf.FacebookPageToken == "" {
 		return errors.New("page access token is missing")
 	}
 
@@ -96,89 +112,89 @@ func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
 		return
 	}
 
-	// Validate user and generate a token if necessary
-	token, err := b.validateAndGenerateToken(senderID)
-	if err != nil {
-		log.Printf("Error validating user: %s", err.Error())
-		return
-	}
+	// // Validate user and generate a token if necessary
+	// token, err := b.validateAndGenerateToken(senderID)
+	// if err != nil {
+	// 	log.Printf("Error validating user: %s", err.Error())
+	// 	return
+	// }
 
-	// If a token is generated for a new user, send it to them
-	if token != nil {
-		b.sendResponse(senderID, "Welcome! Your access token is: "+*token)
-	} else {
-		// Process the user's message if no token is sent
-		b.processUserMessage(senderID, messageText)
-	}
+	// // If a token is generated for a new user, send it to them
+	// if token != nil {
+	// 	b.sendResponse(senderID, "Welcome! Your access token is: "+*token)
+	// } else {
+	// Process the user's message if no token is sent
+	b.processUserMessage(senderID, messageText)
+	//}
 }
 
 // validateAndGenerateToken checks if the user exists and generates a token if not
-func (b *fbBot) validateAndGenerateToken(userID string) (*string, error) {
-	// Retrieve user profile information from Facebook
-	userProfile, err := b.getUserProfile(userID)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching user profile: %w", err)
-	}
+// func (b *fbBot) validateAndGenerateToken(userID string) (*string, error) {
+// 	// Retrieve user profile information from Facebook
+// 	userProfile, err := b.getUserProfile(userID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error fetching user profile: %w", err)
+// 	}
 
-	// Check if the user exists in the database
-	var dbUser models.User
-	err = b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
-	if err != nil {
-		// If user does not exist, create a new user
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			dbUser = models.User{
-				UserID:       userID,
-				UserName:     userProfile.FirstName + " " + userProfile.LastName, // Combine first and last name
-				FirstName:    userProfile.FirstName,
-				LastName:     userProfile.LastName,
-				LanguageCode: "", // Facebook doesn't provide language directly
-			}
+// 	// Check if the user exists in the database
+// 	var dbUser models.User
+// 	err = b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+// 	if err != nil {
+// 		// If user does not exist, create a new user
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			dbUser = models.User{
+// 				UserID:       userID,
+// 				UserName:     userProfile.FirstName + " " + userProfile.LastName, // Combine first and last name
+// 				FirstName:    userProfile.FirstName,
+// 				LastName:     userProfile.LastName,
+// 				LanguageCode: "", // Facebook doesn't provide language directly
+// 			}
 
-			// Create the new user record in the database
-			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
-				return nil, fmt.Errorf("error creating user: %w", err)
-			}
+// 			// Create the new user record in the database
+// 			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
+// 				return nil, fmt.Errorf("error creating user: %w", err)
+// 			}
 
-			// Generate a JWT token using the service's ValidateUser method
-			token, err := b.Service.ValidateUser(userID, service.ValidateUserReq{
-				FirstName:    userProfile.FirstName,
-				LastName:     userProfile.LastName,
-				UserName:     "", // Facebook doesn’t provide username directly
-				LanguageCode: "", // Facebook doesn’t provide language directly
-			})
-			if err != nil {
-				return nil, fmt.Errorf("error generating JWT: %w", err)
-			}
+// 			// Generate a JWT token using the service's ValidateUser method
+// 			token, err := b.Service.ValidateUser(userID, service.ValidateUserReq{
+// 				FirstName:    userProfile.FirstName,
+// 				LastName:     userProfile.LastName,
+// 				UserName:     "", // Facebook doesn’t provide username directly
+// 				LanguageCode: "", // Facebook doesn’t provide language directly
+// 			})
+// 			if err != nil {
+// 				return nil, fmt.Errorf("error generating JWT: %w", err)
+// 			}
 
-			return token, nil // Return the generated token
-		}
-		return nil, fmt.Errorf("error retrieving user: %w", err)
-	}
+// 			return token, nil // Return the generated token
+// 		}
+// 		return nil, fmt.Errorf("error retrieving user: %w", err)
+// 	}
 
-	return nil, nil // User already exists, no token generation needed
-}
+// 	return nil, nil // User already exists, no token generation needed
+// }
 
-// getUserProfile retrieves the user profile information from Facebook
-func (b *fbBot) getUserProfile(userID string) (*service.UserProfile, error) {
-	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.pageAccessToken) // TODO move url to env
+// // getUserProfile retrieves the user profile information from Facebook
+// func (b *fbBot) getUserProfile(userID string) (*service.UserProfile, error) {
+// 	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.conf.FacebookPageToken) // TODO move url to env
 
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching user profile: %w", err)
-	}
-	defer resp.Body.Close()
+// 	resp, err := http.Get(url)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error fetching user profile: %w", err)
+// 	}
+// 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid response from Facebook, status code: %d", resp.StatusCode)
-	}
+// 	if resp.StatusCode != http.StatusOK {
+// 		return nil, fmt.Errorf("invalid response from Facebook, status code: %d", resp.StatusCode)
+// 	}
 
-	var profile service.UserProfile
-	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
-		return nil, fmt.Errorf("error decoding profile response: %w", err)
-	}
+// 	var profile service.UserProfile
+// 	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+// 		return nil, fmt.Errorf("error decoding profile response: %w", err)
+// 	}
 
-	return &profile, nil
-}
+// 	return &profile, nil
+// }
 
 // processUserMessage processes the user message and responds accordingly
 func (b *fbBot) processUserMessage(senderID, text string) {
@@ -200,7 +216,8 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 		response = strings.ToUpper(text)
 	} else {
 		// Fetch document embeddings and try to match based on similarity
-		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		documentEmbeddings, chunkText, err := b.dao.FetchEmbeddings()
+		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
@@ -267,7 +284,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 // sendMessage sends a message to the specified user on Messenger
 func (b *fbBot) sendResponse(senderID interface{}, messageText string) error {
 	//conf := config.GetConfig()
-	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.pageAccessToken
+	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.conf.FacebookPageToken
 
 	// Create the message payload
 	messageData := map[string]interface{}{

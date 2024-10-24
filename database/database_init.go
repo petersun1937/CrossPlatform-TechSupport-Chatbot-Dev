@@ -11,7 +11,7 @@ import (
 
 //var DB *gorm.DB
 
-// Database2 interface defines the methods for database operations
+// Database interface defines the methods for database operations
 type Database interface {
 	Init() error
 	GetDB() *gorm.DB
@@ -31,7 +31,7 @@ type database struct {
 // NewDatabase2 creates a new instance of database2 with the provided config
 func NewDatabase(config *config.Config) Database {
 	return &database{
-		conf: config,
+		conf: config, // TODO: Need whole config?
 		//user: config.GetDBUser(),
 		//pwd:  config.GetDBPwd(),
 	}

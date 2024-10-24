@@ -2,7 +2,6 @@ package bot
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +10,9 @@ import (
 	"strings"
 
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
-	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/repository"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 )
@@ -25,39 +25,56 @@ type IgBot interface {
 }
 
 type igBot struct {
-	*BaseBot
-	conf            config.BotConfig
-	ctx             context.Context
-	pageAccessToken string
+	BaseBot
+	// conf config.BotConfig
+	// ctx             context.Context
+	// pageAccessToken string
 	//openAIclient    *openai.Client
 }
 
-// creates a new Instagram bot instance
-func NewIGBot(conf *config.Config, service *service.Service) (*igBot, error) {
+// creates a new IGBot instance
+func NewIGBot(conf config.BotConfig, database database.Database, dao repository.DAO) (*igBot, error) {
 	// Verify that the page access token is available
 	if conf.InstagramPageToken == "" {
 		return nil, errors.New(" Instagram Page Access Token is not provided")
 	}
 
-	// Initialize the BaseBot structure
-	baseBot := &BaseBot{
-		Platform: INSTAGRAM,
-		Service:  service,
-	}
-
-	// Initialize and return the IgBot instance
 	return &igBot{
-		BaseBot:         baseBot,
-		conf:            conf.BotConfig,
-		ctx:             context.Background(),
-		pageAccessToken: conf.InstagramPageToken,
-		//openAIclient    *openai.Client,
+		BaseBot: BaseBot{
+			Platform: INSTAGRAM,
+			conf:     conf,
+			database: database,
+			dao:      dao,
+		},
 	}, nil
 }
 
+// // creates a new Instagram bot instance
+// func NewIGBot(conf *config.Config, service *service.Service) (*igBot, error) {
+// 	// Verify that the page access token is available
+// 	if conf.InstagramPageToken == "" {
+// 		return nil, errors.New(" Instagram Page Access Token is not provided")
+// 	}
+
+// 	// Initialize the BaseBot structure
+// 	baseBot := &BaseBot{
+// 		Platform: INSTAGRAM,
+// 		Service:  service,
+// 	}
+
+// 	// Initialize and return the IgBot instance
+// 	return &igBot{
+// 		BaseBot:         baseBot,
+// 		conf:            conf.BotConfig,
+// 		ctx:             context.Background(),
+// 		pageAccessToken: conf.InstagramPageToken,
+// 		//openAIclient    *openai.Client,
+// 	}, nil
+// }
+
 // Run initializes and starts the Instagram bot with webhook
 func (b *igBot) Run() error {
-	if b.pageAccessToken == "" {
+	if b.conf.InstagramPageToken == "" {
 		return errors.New(" Instagram page access token is missing")
 	}
 
@@ -194,7 +211,7 @@ func (b *igBot) HandleInstagramMessage(senderID, messageText string) {
 func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
 
 	//conf := config.GetConfig()
-	url := fmt.Sprintf("https://graph.facebook.com/v17.0/me/messages?access_token=%s", b.pageAccessToken)
+	url := fmt.Sprintf("https://graph.facebook.com/v17.0/me/messages?access_token=%s", b.conf.InstagramPageToken)
 
 	// Create the message payload
 	messageData := map[string]interface{}{
@@ -279,7 +296,8 @@ func (b *igBot) processUserMessage(senderID, text string) {
 		response = strings.ToUpper(text)
 	} else {
 		// Fetch document embeddings and try to match based on similarity
-		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		documentEmbeddings, chunkText, err := b.dao.FetchEmbeddings()
+		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."

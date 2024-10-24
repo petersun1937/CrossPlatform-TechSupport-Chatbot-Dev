@@ -2,12 +2,12 @@ package bot
 
 import (
 	"bytes"
-	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
-	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/repository"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,48 +25,73 @@ type TgBot interface {
 	Run() error
 	setWebhook(webhookURL string) error
 	HandleTelegramUpdate(update tgbotapi.Update)
-	StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error
+	StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error
 }
 
 type tgBot struct {
-	*BaseBot
-	conf         config.BotConfig
-	embConfig    config.EmbeddingConfig
-	ctx          context.Context
-	token        string
+	BaseBot
+	// conf         config.BotConfig
+	embConfig config.EmbeddingConfig
+	// ctx          context.Context
+	// token        string
 	botApi       *tgbotapi.BotAPI
 	openAIclient *openai.Client
 	//service *service.Service
 }
 
-func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
+// func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
+// 	// Attempt to create a new Telegram bot using the provided token
+// 	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	// Ensure botApi is not nil before proceeding
+// 	if botApi == nil {
+// 		return nil, errors.New("telegram Bot API is nil")
+// 	}
+
+// 	baseBot := &BaseBot{
+// 		Platform: TELEGRAM,
+// 		Service:  service,
+// 	}
+
+// 	// Initialize and return tgBot instance
+// 	return &tgBot{
+// 		BaseBot:      baseBot,
+// 		conf:         conf.BotConfig,
+// 		embConfig:    conf.EmbeddingConfig,
+// 		ctx:          context.Background(),
+// 		token:        conf.TelegramBotToken,
+// 		botApi:       botApi,
+// 		openAIclient: openai.NewClient(),
+// 	}, nil
+
+// }
+
+// creates a new TGBot instance
+func NewTGBot(botconf config.BotConfig, embconf config.EmbeddingConfig, database database.Database, dao repository.DAO) (*tgBot, error) {
 	// Attempt to create a new Telegram bot using the provided token
-	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
+	botApi, err := tgbotapi.NewBotAPI(botconf.TelegramBotToken)
 	if err != nil {
 		return nil, err
 	}
-
 	// Ensure botApi is not nil before proceeding
 	if botApi == nil {
 		return nil, errors.New("telegram Bot API is nil")
 	}
 
-	baseBot := &BaseBot{
-		Platform: TELEGRAM,
-		Service:  service,
-	}
-
-	// Initialize and return tgBot instance
 	return &tgBot{
-		BaseBot:      baseBot,
-		conf:         conf.BotConfig,
-		embConfig:    conf.EmbeddingConfig,
-		ctx:          context.Background(),
-		token:        conf.TelegramBotToken,
+		BaseBot: BaseBot{
+			Platform: TELEGRAM,
+			conf:     botconf,
+			database: database,
+			dao:      dao,
+		},
 		botApi:       botApi,
+		embConfig:    embconf,
 		openAIclient: openai.NewClient(),
 	}, nil
-
 }
 
 // SetWebhook sets the webhook for Telegram bot
@@ -86,7 +111,7 @@ func (b *tgBot) setWebhook(webhookURL string) error {
 }
 
 func (b *tgBot) Run() error {
-	botApi, err := tgbotapi.NewBotAPI(b.token) // create new BotAPI instance using the token
+	botApi, err := tgbotapi.NewBotAPI(b.conf.TelegramBotToken) // create new BotAPI instance using the token
 	// utils.TgBot: global variable (defined in the utils package) that holds the reference to the bot instance.
 	if err != nil {
 		return err
@@ -152,30 +177,37 @@ func (b *tgBot) handleTgMessage(message *tgbotapi.Message) {
 		return
 	}
 
-	userIDStr := strconv.FormatInt(user.ID, 10)
-	fmt.Printf("User ID: %s \n", userIDStr)
-
-	token, err := b.validateAndGenerateToken(userIDStr, user)
+	// token, err := b.validateAndGenerateToken(userIDStr, user, message)
+	userExists, err := b.validateUser(user, message)
 	if err != nil {
 		fmt.Printf("Error validating user: %s", err.Error())
 		return
 	}
 
-	if token != nil {
-		b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
-	} else {
-		b.processUserMessage(message, user.FirstName, message.Text)
+	if !userExists {
+		// User was just created and welcomed, no further action needed.
+		return
 	}
+
+	// if token != nil {
+	// 	b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
+	// } else {
+	b.processUserMessage(message, user.FirstName, message.Text)
+	//}
 }
 
-// validateAndGenerateToken checks if the user exists in the database and generates a token if not
-func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) (*string, error) {
-	// Check if the user exists in the database
+// validateUser checks if the user exists in the database and creates a new record if not.
+func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bool, error) {
 	var dbUser models.User
-	err := b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userIDStr).First(&dbUser).Error
+
+	userIDStr := strconv.FormatInt(user.ID, 10)
+	fmt.Printf("User ID: %s \n", userIDStr)
+
+	// Check if the user exists in the database.
+	err := b.database.GetDB().Where("user_id = ? AND deleted_at IS NULL", userIDStr).First(&dbUser).Error
 	if err != nil {
-		// If user does not exist, create a new user
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// User does not exist; create a new record.
 			dbUser = models.User{
 				UserID:       userIDStr,
 				UserName:     user.UserName,
@@ -184,29 +216,63 @@ func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) 
 				LanguageCode: user.LanguageCode,
 			}
 
-			// Create the new user record in the database
-			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
-				return nil, fmt.Errorf("error creating user: %w", err)
+			// Save the new user to the database.
+			if err := b.database.GetDB().Create(&dbUser).Error; err != nil {
+				return false, fmt.Errorf("error creating user: %w", err)
 			}
 
-			// Generate a JWT token using the service's ValidateUser method
-			token, err := b.Service.ValidateUser(userIDStr, service.ValidateUserReq{
-				FirstName:    user.FirstName,
-				LastName:     user.LastName,
-				UserName:     user.UserName,
-				LanguageCode: user.LanguageCode,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("error generating JWT: %w", err)
+			// Send a welcome message to the new user.
+			welcomeMessage := fmt.Sprintf("Welcome, %s!", user.UserName)
+			if err := b.sendResponse(message, welcomeMessage); err != nil {
+				return false, fmt.Errorf("error sending welcome message: %w", err)
 			}
 
-			return token, nil // Return the generated token
+			return false, nil // User was just created and welcomed.
 		}
-		return nil, fmt.Errorf("error retrieving user: %w", err)
+		return false, fmt.Errorf("error retrieving user: %w", err)
 	}
-
-	return nil, nil // User already exists, no token generation needed
+	return true, nil // User already exists.
 }
+
+// validateAndGenerateToken checks if the user exists in the database and generates a token if not
+// func (b *tgBot) validateAndGenerateToken(userIDStr string, user *tgbotapi.User) (*string, error) {
+// 	// Check if the user exists in the database
+// 	var dbUser models.User
+// 	err := b.Service.GetDB().Where("user_id = ? AND deleted_at IS NULL", userIDStr).First(&dbUser).Error
+// 	if err != nil {
+// 		// If user does not exist, create a new user
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			dbUser = models.User{
+// 				UserID:       userIDStr,
+// 				UserName:     user.UserName,
+// 				FirstName:    user.FirstName,
+// 				LastName:     user.LastName,
+// 				LanguageCode: user.LanguageCode,
+// 			}
+
+// 			// Create the new user record in the database
+// 			if err := b.Service.GetDB().Create(&dbUser).Error; err != nil {
+// 				return nil, fmt.Errorf("error creating user: %w", err)
+// 			}
+
+// 			// Generate a JWT token using the service's ValidateUser method
+// 			token, err := b.Service.ValidateUser(userIDStr, service.ValidateUserReq{
+// 				FirstName:    user.FirstName,
+// 				LastName:     user.LastName,
+// 				UserName:     user.UserName,
+// 				LanguageCode: user.LanguageCode,
+// 			})
+// 			if err != nil {
+// 				return nil, fmt.Errorf("error generating JWT: %w", err)
+// 			}
+
+// 			return token, nil // Return the generated token
+// 		}
+// 		return nil, fmt.Errorf("error retrieving user: %w", err)
+// 	}
+
+// 	return nil, nil // User already exists, no token generation needed
+// }
 
 // Process user messages and respond accordingly
 func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text string) { //chatID int64
@@ -229,7 +295,8 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 		response = strings.ToUpper(text)
 	} else {
 		// Get all document embeddings
-		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
+		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
@@ -321,7 +388,7 @@ func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
 func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
 	// Use the Telegram API URL from the config
-	url := b.conf.TelegramAPIURL + b.token + "/sendMessage"
+	url := b.conf.TelegramAPIURL + b.conf.TelegramBotToken + "/sendMessage"
 	//conf := config.GetConfig()
 	//url := conf.TelegramAPIURL + b.token + "/sendMessage"
 
@@ -376,7 +443,7 @@ func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
 	// Store document chunks and their embeddings
 	chunkSize := 200 // Set chunk size as needed (e.g., 200 words)
 	minchunkSize := 50
-	err = b.StoreDocumentChunks(fileID, docText, chunkSize, minchunkSize)
+	err = b.StoreDocumentChunks(update.Message.Document.FileName, fileID, docText, chunkSize, minchunkSize)
 	if err != nil {
 		b.sendTelegramMessage(update.Message.Chat.ID, "Error storing document chunks: "+err.Error())
 		return
@@ -385,7 +452,7 @@ func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
 	b.sendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
 }
 
-func (b *tgBot) StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error {
+func (b *tgBot) StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error {
 	//chunks := ChunkDocument(text, chunkSize)
 	//chunks := utils.ChunkDocumentBySentence(text, chunkSize)
 	chunks := document.ChunkSmartly(text, chunkSize, minchunkSize)
@@ -395,8 +462,13 @@ func (b *tgBot) StoreDocumentChunks(docID string, text string, chunkSize int, mi
 		if err != nil {
 			return fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding) // Store each chunk with its embedding
+		//chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
+		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, chunkID, chunk, embedding) // Store each chunk with its embedding
+		if err != nil {
+			return fmt.Errorf("error storing chunks: %v", err)
+		}
+		//b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
 	}
 	fmt.Println("Document embedding complete.")
 	return nil

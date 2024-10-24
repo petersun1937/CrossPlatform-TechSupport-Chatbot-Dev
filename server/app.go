@@ -1,22 +1,17 @@
 package server
 
 import (
-	"crossplatform_chatbot/bot"
 	config "crossplatform_chatbot/configs"
-	"crossplatform_chatbot/service"
-	"fmt"
-	"os"
-	"time"
-
-	"github.com/gin-gonic/gin"
+	"crossplatform_chatbot/handlers"
 )
 
 type App struct { //TODO: app or GetConfig for config?
-	Config  *config.Config
-	Service *service.Service // for database operations
-	Router  *gin.Engine
-	Bots    map[string]bot.Bot
-	Server  *Server
+	Config config.Config // *
+	Server *Server
+	// Service *service.Service // for database operations
+	// Router  *gin.Engine
+	// Bots    map[string]bot.Bot
+	// Server  *Server
 	//LineBot    bot.LineBot
 	//TgBot      bot.TgBot
 	//FbBot      bot.FbBot
@@ -24,43 +19,47 @@ type App struct { //TODO: app or GetConfig for config?
 }
 
 func (a App) Run() error {
-	// running bots
-	for _, bot := range a.Bots {
-		if err := bot.Run(); err != nil {
-			// log.Fatal("running bot failed:", err)
-			fmt.Printf("running bot failed: %s", err.Error())
-			return err
-		}
-	}
-
 	// initialize http server routes from app struct
-	go a.RunRoutes(a.Config, a.Service, *a.Server)
+	a.Server.Start()
+
+	// for _, bot := range a.Bots {
+	// 	if err := bot.Run(); err != nil {
+	// 		// log.Fatal("running bot failed:", err)
+	// 		fmt.Printf("running bot failed: %s", err.Error())
+	// 		return err
+	// 	}
+	// }
+
+	// // initialize http server routes from app struct
+	// go a.RunRoutes(a.Config, a.Service, *a.Server)
 
 	return nil
 }
 
-func NewApp(conf *config.Config, svc *service.Service, bots map[string]bot.Bot) *App {
+func NewApp(conf config.Config, handler *handlers.Handler) *App {
 
-	svrcfg := config.ServerConfig{
-		Host: os.Getenv("HOST"),
-		//Port:    8080, // Default port, can be overridden
-		Port:    conf.Port,
-		Timeout: 30 * time.Second,
-		MaxConn: 100,
-	}
+	// svrcfg := config.ServerConfig{
+	// 	Host: os.Getenv("HOST"),
+	// 	//Port:    8080, // Default port, can be overridden
+	// 	Port:    conf.Port,
+	// 	Timeout: 30 * time.Second,
+	// 	MaxConn: 100,
+	// }
 
-	svr := New(svrcfg, svc, conf)
-	//svr := New(cfg)
+	// svr := New(svrcfg, svc, conf)
+	// //svr := New(cfg)
 
 	return &App{
-		Config:  conf,
-		Service: svc,
-		Router:  gin.Default(),
-		Bots:    bots,
-		Server:  svr,
-		// LineBot:    lineBot,    // Store the initialized LineBot
-		// TgBot:      tgBot,      // Store the initialized TgBot
-		// FbBot:      fbBot,      // Store the initialized FbBot
-		// GeneralBot: generalBot, // Store the GeneralBot for /api/message route
+		Config: conf,
+		Server: New(conf.ServerConfig, handler),
+		// Config:  conf,
+		// Service: svc,
+		// Router:  gin.Default(),
+		// Bots:    bots,
+		// Server:  svr,
+		// // LineBot:    lineBot,    // Store the initialized LineBot
+		// // TgBot:      tgBot,      // Store the initialized TgBot
+		// // FbBot:      fbBot,      // Store the initialized FbBot
+		// // GeneralBot: generalBot, // Store the GeneralBot for /api/message route
 	}
 }

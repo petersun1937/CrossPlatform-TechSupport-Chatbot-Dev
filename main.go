@@ -9,12 +9,30 @@ import (
 	"syscall"
 	"time"
 
-	"crossplatform_chatbot/bot"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/handlers"
 	"crossplatform_chatbot/server"
 	"crossplatform_chatbot/service"
 )
+
+/*
+	Architecture
+	[Prerequisites]
+	- config
+
+	[Application]
+	- Server (handler/gin + service/database/bots...)
+
+	[API]
+	- Handler
+	- Gin Server
+
+	[Core Logic]
+	- logic (service)
+	- database (postgres)
+	- bots
+*/
 
 func main() {
 
@@ -28,13 +46,21 @@ func main() {
 	}
 
 	// Initialize service
-	srv := service.NewService(db)
+	svc := service.NewService(conf.BotConfig, conf.EmbeddingConfig, db)
+	if err := svc.RunBots(); err != nil {
+		log.Fatal("Failed to run the Bot services:", err)
+	}
+	//svc := service.NewService(db)
+
+	// Initialize handler
+	handler := handlers.NewHandler(svc)
 
 	// initialize bots
-	bots := createBots(conf, srv)
+	// bots := createBots(conf, svc)
 
 	// Initialize the app (app acts as the central hub for the application, holds different initialized values)
-	app := server.NewApp(conf, srv, bots)
+	//app := server.NewApp(conf, svc, bots)
+	app := server.NewApp(*conf, handler)
 	if err := app.Run(); err != nil {
 		log.Fatal("Failed to run the app:", err)
 	}
@@ -62,40 +88,40 @@ func main() {
 
 }
 
-func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
-	// Initialize bots
-	lineBot, err := bot.NewLineBot(conf, srv)
-	if err != nil {
-		//log.Fatal("Failed to initialize LINE bot:", err)
-		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
-	}
+// func createBots(conf *config.Config, srv *service.Service) map[string]bot.Bot {
+// 	// Initialize bots
+// 	lineBot, err := bot.NewLineBot(conf, srv)
+// 	if err != nil {
+// 		//log.Fatal("Failed to initialize LINE bot:", err)
+// 		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+// 	}
 
-	tgBot, err := bot.NewTGBot(conf, srv)
-	if err != nil {
-		//log.Fatal("Failed to initialize Telegram bot:", err)
-		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
-	}
+// 	tgBot, err := bot.NewTGBot(conf, srv)
+// 	if err != nil {
+// 		//log.Fatal("Failed to initialize Telegram bot:", err)
+// 		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+// 	}
 
-	fbBot, err := bot.NewFBBot(conf, srv)
-	if err != nil {
-		fmt.Printf("Failed to create Facebook bot: %v", err)
-	}
+// 	fbBot, err := bot.NewFBBot(conf, srv)
+// 	if err != nil {
+// 		fmt.Printf("Failed to create Facebook bot: %v", err)
+// 	}
 
-	igBot, err := bot.NewIGBot(conf, srv)
-	if err != nil {
-		fmt.Printf("Failed to create Instagram bot: %v", err)
-	}
+// 	igBot, err := bot.NewIGBot(conf, srv)
+// 	if err != nil {
+// 		fmt.Printf("Failed to create Instagram bot: %v", err)
+// 	}
 
-	generalBot, err := bot.NewGeneralBot(conf, srv)
-	if err != nil {
-		fmt.Printf("Failed to initialize General bot: %v", err)
-	}
+// 	generalBot, err := bot.NewGeneralBot(conf, srv)
+// 	if err != nil {
+// 		fmt.Printf("Failed to initialize General bot: %v", err)
+// 	}
 
-	return map[string]bot.Bot{
-		"line":    lineBot,
-		"tg":      tgBot,
-		"fb":      fbBot,
-		"ig":      igBot,
-		"general": generalBot,
-	}
-}
+// 	return map[string]bot.Bot{
+// 		"line":    lineBot,
+// 		"tg":      tgBot,
+// 		"fb":      fbBot,
+// 		"ig":      igBot,
+// 		"general": generalBot,
+// 	}
+// }

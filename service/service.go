@@ -1,32 +1,84 @@
 package service
 
 import (
+	"crossplatform_chatbot/bot"
+	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/models"
-	"crossplatform_chatbot/utils"
-	"crossplatform_chatbot/utils/token"
+	"crossplatform_chatbot/repository"
 	"fmt"
-	"time"
-	"unicode/utf8"
-
-	"gorm.io/gorm"
+	"log"
 )
 
 type Service struct {
-	database database.Database
+	bots     map[string]bot.Bot
+	database database.Database // TODO
+	//repository *repository.Repository
 }
 
-func NewService(database database.Database) *Service {
+func NewService(botConfig config.BotConfig, embConfig config.EmbeddingConfig, db database.Database) *Service {
+
+	dao := repository.NewDAO(db)
+
 	return &Service{
-		database: database,
+		bots:     createBots(botConfig, embConfig, db, dao),
+		database: db,
+		//repository: repository.NewRepository(database),
 	}
 }
 
-type ValidateUserReq struct {
-	FirstName    string
-	LastName     string
-	UserName     string
-	LanguageCode string
+func (s *Service) RunBots() error {
+
+	for _, bot := range s.bots {
+		if err := bot.Run(); err != nil {
+			// log.Fatal("running bot failed:", err)
+			fmt.Printf("running bot failed: %s", err.Error())
+			return err
+		}
+	}
+
+	return nil
+}
+
+func createBots(botConfig config.BotConfig, embConfig config.EmbeddingConfig, database database.Database, dao repository.DAO) map[string]bot.Bot {
+	// Initialize bots
+	lineBot, err := bot.NewLineBot(botConfig, database, dao)
+	if err != nil {
+		//log.Fatal("Failed to initialize LINE bot:", err)
+		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+	}
+
+	tgBot, err := bot.NewTGBot(botConfig, embConfig, database, dao)
+	if err != nil {
+		//log.Fatal("Failed to initialize Telegram bot:", err)
+		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+	}
+
+	fbBot, err := bot.NewFBBot(botConfig, database, dao)
+	if err != nil {
+		log.Fatalf("Failed to create Facebook bot: %v", err)
+	}
+
+	igBot, err := bot.NewIGBot(botConfig, database, dao)
+	if err != nil {
+		log.Fatalf("Failed to create Instagram bot: %v", err)
+	}
+
+	generalBot, err := bot.NewGeneralBot(botConfig, embConfig, database, dao)
+	if err != nil {
+		log.Fatalf("Failed to initialize General bot: %v", err)
+	}
+
+	return map[string]bot.Bot{
+		"line":      lineBot,
+		"telegram":  tgBot,
+		"facebook":  fbBot,
+		"instagram": igBot,
+		"general":   generalBot,
+	}
+}
+
+func (s *Service) GetBot(tag string) bot.Bot {
+	return s.bots[tag]
 }
 
 type UserProfile struct {
@@ -35,83 +87,134 @@ type UserProfile struct {
 	ID        string `json:"id"` // Facebook User ID
 }
 
-// GetDB returns the gorm.DB instance from the service's database
-func (s *Service) GetDB() *gorm.DB {
-	return s.database.GetDB()
-}
-
-func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {
-	repo := NewRepository(s.database)
-
-	// Check if the user exists
-	_, err := repo.GetUser(userIDStr)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// If user not found, create a new user
-			err = repo.CreateUser(userIDStr, req)
-			if err != nil {
-				return nil, err
-			}
-
-			// Generate a JWT token for the new user
-			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
-			if err != nil {
-				fmt.Printf("Error generating JWT: %s", err.Error())
-				return nil, err
-			}
-
-			return &token, nil
+func (s *Service) Init() error {
+	// running bots
+	for _, bot := range s.bots {
+		if err := bot.Run(); err != nil {
+			// log.Fatal("running bot failed:", err)
+			fmt.Printf("running bot failed: %s", err.Error())
+			return err
 		}
-
-		// Other errors when fetching user
-		return nil, err
 	}
-
-	return nil, err
-}
-
-// StoreDocumentEmbedding stores the document and its embedding into the database
-func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding []float64) error {
-	repo := NewRepository(s.database)
-
-	// Sanitize the document text
-	docText = sanitizeText(docText)
-
-	// Convert embedding to PostgreSQL-compatible array string
-	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
-
-	docEmbedding := models.DocumentEmbedding{
-		DocID:     docID,
-		DocText:   docText,
-		Embedding: embeddingStr,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
-
-	// Store the sanitized document embedding
-	err := repo.CreateDocumentEmbedding(&docEmbedding)
-	if err != nil {
-		return fmt.Errorf("error storing document embedding: %v", err)
-	}
-
 	return nil
 }
 
-// CreateDocumentEmbedding stores a document embedding in the database
-func (r *Repository) CreateDocumentEmbedding(docEmbedding *models.DocumentEmbedding) error {
-	return r.database.GetDB().Create(docEmbedding).Error
-}
+// // GetDB returns the gorm.DB instance from the service's database
+// func (s *Service) GetDB() *gorm.DB {
+// 	return s.database.GetDB()
+// }
 
-func sanitizeText(input string) string {
-	validRunes := []rune{}
-	for _, r := range input {
-		if r == utf8.RuneError {
-			continue // Skip invalid characters
-		}
-		validRunes = append(validRunes, r)
-	}
-	return string(validRunes)
-}
+// func (s *Service) ValidateUser(userID string, req models.User) (*string, error) {
+// 	_, err := s.repository.GetUser(userID)
+// 	if err != nil {
+// 		if err.Error() == "record not found" {
+// 			if err := s.repository.CreateUser(&req); err != nil {
+// 				return nil, fmt.Errorf("error creating user: %v", err)
+// 			}
+
+// 			token, err := token.GenerateToken(userID, "user")
+// 			if err != nil {
+// 				return nil, fmt.Errorf("error generating token: %v", err)
+// 			}
+
+// 			return &token, nil
+// 		}
+// 		return nil, err
+// 	}
+// 	return nil, nil
+// }
+
+// func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {
+// 	repo := NewRepository(s.database)
+
+// 	// Check if the user exists
+// 	_, err := repo.GetUser(userIDStr)
+// 	if err != nil {
+// 		if err == gorm.ErrRecordNotFound {
+// 			// If user not found, create a new user
+// 			err = repo.CreateUser(userIDStr, req)
+// 			if err != nil {
+// 				return nil, err
+// 			}
+
+// 			// Generate a JWT token for the new user
+// 			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
+// 			if err != nil {
+// 				fmt.Printf("Error generating JWT: %s", err.Error())
+// 				return nil, err
+// 			}
+
+// 			return &token, nil
+// 		}
+
+// 		// Other errors when fetching user
+// 		return nil, err
+// 	}
+
+// 	return nil, err
+// }
+
+// // StoreDocumentEmbedding stores the document and its embedding into the database
+// func (s *Service) StoreDocumentEmbedding(docID, docText string, embedding []float64) error {
+// 	docText = sanitizeText(docText)
+// 	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+// 	docEmbedding := models.DocumentEmbedding{
+// 		DocID:     docID,
+// 		DocText:   docText,
+// 		Embedding: embeddingStr,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 	}
+
+// 	return s.repository.CreateDocumentEmbedding(&docEmbedding)
+// }
+
+// func sanitizeText(input string) string {
+// 	validRunes := []rune{}
+// 	for _, r := range input {
+// 		if r == utf8.RuneError {
+// 			continue // Skip invalid characters
+// 		}
+// 		validRunes = append(validRunes, r)
+// 	}
+// 	return string(validRunes)
+// }
+
+// // GetAllDocumentEmbeddings retrieves document embeddings from the repository.
+// func (s *Service) GetAllDocumentEmbeddings() (map[string][]float64, map[string]string, error) {
+// 	return s.repository.FetchEmbeddings()
+// }
+
+// func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding []float64) error {
+// 	repo := NewRepository(s.database)
+
+// 	// Sanitize the document text
+// 	docText = sanitizeText(docText)
+
+// 	// Convert embedding to PostgreSQL-compatible array string
+// 	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+// 	docEmbedding := models.DocumentEmbedding{
+// 		DocID:     docID,
+// 		DocText:   docText,
+// 		Embedding: embeddingStr,
+// 		CreatedAt: time.Now(),
+// 		UpdatedAt: time.Now(),
+// 	}
+
+// 	// Store the sanitized document embedding
+// 	err := repo.CreateDocumentEmbedding(&docEmbedding)
+// 	if err != nil {
+// 		return fmt.Errorf("error storing document embedding: %v", err)
+// 	}
+
+// 	return nil
+// }
+
+// func (s *Service) GetAllDocumentEmbeddings() (map[string][]float64, map[string]string, error) {
+// 	return repository.FetchEmbeddings(s.GetDB())
+// }
 
 // func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {
 // 	// Check if the user exists in the database
@@ -143,7 +246,7 @@ func sanitizeText(input string) string {
 // 				return nil, err
 // 			}
 
-// 			// Generate a JWT token for the new user   TODO: move GenerateToken to bot?
+// 			// Generate a JWT token for the new user
 // 			token, err := token.GenerateToken(userIDStr, "user") // Ensure GenerateToken accepts string
 // 			if err != nil {
 // 				fmt.Printf("Error generating JWT: %s", err.Error())

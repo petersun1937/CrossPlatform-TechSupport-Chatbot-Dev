@@ -1,11 +1,11 @@
 package bot
 
 import (
-	"context"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
 	openai "crossplatform_chatbot/openai"
-	"crossplatform_chatbot/service"
+	"crossplatform_chatbot/repository"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,34 +16,49 @@ import (
 
 type GeneralBot interface {
 	Run() error
-	HandleGeneralMessage(context *gin.Context)
-	StoreDocumentChunks(docID string, text string, chunkSize int, minchunkSize int) error
-	ProcessDocument(sessionID string, filePath string) error
+	HandleGeneralMessage(sessionID, message string)
+	StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
+	ProcessDocument(Filename, sessionID, filePath string) error
+	StoreContext(sessionID string, c *gin.Context)
 	//SetWebhook(webhookURL string) error
 }
 
 type generalBot struct {
 	// Add any common fields if necessary, like configuration
-	*BaseBot
-	ctx          context.Context
-	conf         config.BotConfig
+	BaseBot
+	//ctx context.Context
+	// conf         config.BotConfig
 	embConfig    config.EmbeddingConfig
 	openAIclient *openai.Client
-
 	//config map[string]string
 }
 
-func NewGeneralBot(conf *config.Config, service *service.Service) (*generalBot, error) {
-	baseBot := &BaseBot{
-		Platform: GENERAL,
-		Service:  service,
-	}
+// func NewGeneralBot(conf *config.Config, service *service.Service) (*generalBot, error) {
+// 	baseBot := &BaseBot{
+// 		Platform: GENERAL,
+// 		Service:  service,
+// 	}
+
+// 	return &generalBot{
+// 		BaseBot:      baseBot,
+// 		conf:         conf.BotConfig,
+// 		embConfig:    conf.EmbeddingConfig,
+// 		ctx:          context.Background(),
+// 		openAIclient: openai.NewClient(),
+// 	}, nil
+// }
+
+// creates a new GeneralBot instance
+func NewGeneralBot(botconf config.BotConfig, embconf config.EmbeddingConfig, database database.Database, dao repository.DAO) (*generalBot, error) {
 
 	return &generalBot{
-		BaseBot:      baseBot,
-		conf:         conf.BotConfig,
-		embConfig:    conf.EmbeddingConfig,
-		ctx:          context.Background(),
+		BaseBot: BaseBot{
+			Platform: GENERAL,
+			conf:     botconf,
+			database: database,
+			dao:      dao,
+		},
+		embConfig:    embconf,
 		openAIclient: openai.NewClient(),
 	}, nil
 }
@@ -54,44 +69,11 @@ func (b *generalBot) Run() error {
 	return nil
 }
 
-func (b *generalBot) HandleGeneralMessage(c *gin.Context) { // TODO: some to handler
-	var req struct {
-		SessionID string `json:"sessionID"`
-		Message   string `json:"message"`
-	}
-
-	// Parse the request body
-	if err := c.ShouldBindJSON(&req); err != nil {
-		fmt.Printf("Invalid request: %s\n", err.Error())
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-		return
-	}
-
-	// Store the context (to use later for sending the response)
-	storeContext(req.SessionID, c)
-
-	/*user := message.From
-	if user == nil {
-		return
-	}
-
-	userIDStr := strconv.FormatInt(user.ID, 10)
-	fmt.Printf("User ID: %s \n", userIDStr)
-
-	token, err := b.validateAndGenerateToken(userIDStr, user)
-	if err != nil {
-		fmt.Printf("Error validating user: %s", err.Error())
-		return
-	}
-
-	if token != nil {
-		b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
-	} else {
-		b.processUserMessage(message, user.FirstName, message.Text)
-	}*/
+// func (b *generalBot) HandleGeneralMessage(c *gin.Context) {
+func (b *generalBot) HandleGeneralMessage(sessionID, message string) {
 
 	// Process and send the message
-	b.ProcessUserMessage(req.SessionID, req.Message)
+	b.ProcessUserMessage(sessionID, message)
 
 	// Send the response back to the frontend using sendResponse
 	/*err = b.sendFrontendMessage(c, response)
@@ -127,7 +109,8 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 		response = strings.ToUpper(message)
 	} else {
 		// Get all document embeddings
-		documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
+		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
@@ -186,10 +169,21 @@ func (b *generalBot) sendResponse(identifier interface{}, response string) error
 	return fmt.Errorf("invalid identifier type, expected string")
 }
 
+func (b *generalBot) sendFrontendMessage(c *gin.Context, message string) error {
+	if c == nil {
+		return fmt.Errorf("gin context is nil")
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"response": message,
+	})
+	return nil
+}
+
+// TODO
 var sessionContextMap = make(map[string]*gin.Context)
 
-// Store the context when the session starts
-func storeContext(sessionID string, c *gin.Context) {
+// StoreContext stores the context in sessionContextMap using the session ID
+func (b *generalBot) StoreContext(sessionID string, c *gin.Context) {
 	sessionContextMap[sessionID] = c
 }
 
@@ -199,13 +193,6 @@ func getContext(sessionID string) (*gin.Context, error) {
 		return context, nil
 	}
 	return nil, fmt.Errorf("no context found for session ID %s", sessionID)
-}
-
-func (b *generalBot) sendFrontendMessage(c *gin.Context, message string) error {
-	c.JSON(http.StatusOK, gin.H{
-		"response": message,
-	})
-	return nil
 }
 
 func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
@@ -250,7 +237,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return nil
 }*/
 
-func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) error {
+func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize, overlap int) error {
 	// Chunk the document with overlap
 	chunks := document.OverlapChunk(text, chunkSize, overlap)
 
@@ -264,9 +251,13 @@ func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize in
 		}
 
 		// Create a unique chunk ID for storage in the database
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
+		chunkID := fmt.Sprintf("%s_chunk_%d_%s", Filename, i, docID)
 		// Store each chunk and its embedding
-		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+		err = b.BaseBot.dao.CreateDocumentEmbedding(Filename, chunkID, chunk, embedding) // Store each chunk with its embedding
+		if err != nil {
+			return fmt.Errorf("error storing chunks: %v", err)
+		}
+		//b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
 	}
 	fmt.Println("Document embedding complete.")
 	return nil
@@ -296,7 +287,7 @@ func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize in
 	return nil
 }*/
 
-func (b *generalBot) ProcessDocument(sessionID string, filePath string) error {
+func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
 	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
@@ -306,7 +297,7 @@ func (b *generalBot) ProcessDocument(sessionID string, filePath string) error {
 	// Store document chunks and their embeddings
 	//chunkSize := 300
 	//minChunkSize := 50
-	err = b.StoreDocumentChunks(sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+	err = b.StoreDocumentChunks(Filename, sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
 	if err != nil {
 		return fmt.Errorf("error storing document chunks: %w", err)
 	}

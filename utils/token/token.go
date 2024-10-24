@@ -33,6 +33,42 @@ func GenerateToken(userID string, role string) (string, error) {
 	return token.SignedString([]byte(os.Getenv("API_SECRET")))
 }
 
+// // ValidateAndGenerateToken checks if the user exists and generates a token if not
+// func ValidateAndGenerateToken(db database.Database, userProfile *linebot.UserProfileResponse, userID string) (bool, *string, error) {
+// 	var dbUser models.User
+
+// 	// Check if the user exists in the database
+// 	err := db.GetDB().Where("user_id = ? AND deleted_at IS NULL", userID).First(&dbUser).Error
+// 	if err != nil {
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			// Create a new user if not found
+// 			dbUser = models.User{
+// 				UserID:       userID,
+// 				UserName:     userProfile.DisplayName,
+// 				FirstName:    "", // LINE doesn't provide first and last names
+// 				LastName:     "",
+// 				LanguageCode: userProfile.Language,
+// 			}
+
+// 			// Save the new user
+// 			if err := db.GetDB().Create(&dbUser).Error; err != nil {
+// 				return false, nil, fmt.Errorf("error creating user: %w", err)
+// 			}
+
+// 			// Generate a JWT token for the new user
+// 			tokenStr, err := GenerateToken(userID, "user")
+// 			if err != nil {
+// 				return false, nil, fmt.Errorf("error generating JWT: %w", err)
+// 			}
+
+// 			return false, &tokenStr, nil
+// 		}
+// 		return false, nil, fmt.Errorf("error retrieving user: %w", err)
+// 	}
+
+// 	return true, nil, nil // User already exists
+// }
+
 // Checks if the provided token is valid
 func TokenValid(c *gin.Context) error {
 	// Extracts the token from the request

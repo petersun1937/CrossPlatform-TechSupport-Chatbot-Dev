@@ -1,7 +1,9 @@
 package bot
 
 import (
-	"crossplatform_chatbot/service"
+	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/repository"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 )
@@ -17,7 +19,10 @@ type Bot interface {
 
 type BaseBot struct {
 	Platform Platform
-	Service  *service.Service
+	// Service  *service.Service
+	conf     config.BotConfig
+	database database.Database
+	dao      repository.DAO
 }
 
 // define platforms

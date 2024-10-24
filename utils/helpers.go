@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	dialogflow "cloud.google.com/go/dialogflow/apiv2"
 	dialogflowpb "cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
@@ -44,6 +45,17 @@ func DetectIntentText(projectID, sessionID, text, languageCode string) (*dialogf
 
 	// Send the request and return the response or error
 	return client.DetectIntent(ctx, req)
+}
+
+func SanitizeText(input string) string {
+	validRunes := []rune{}
+	for _, r := range input {
+		if r == utf8.RuneError {
+			continue // Skip invalid characters
+		}
+		validRunes = append(validRunes, r)
+	}
+	return string(validRunes)
 }
 
 // Convert float64 slice to PostgreSQL float8[] string format

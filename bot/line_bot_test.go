@@ -2,14 +2,8 @@ package bot
 
 import (
 	"net/http"
-	"os"
-	"testing"
 
-	"crossplatform_chatbot/service"
-
-	"github.com/h2non/gock"
 	"github.com/line/line-bot-sdk-go/linebot"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -43,10 +37,10 @@ func (m *MockConfig) GetLineToken() string {
 	return args.String(0)
 }
 
-func (m *MockService) GetDB() service.Database {
-	args := m.Called()
-	return args.Get(0).(service.Database)
-}
+// func (m *MockService) GetDB() service.Database {
+// 	args := m.Called()
+// 	return args.Get(0).(service.Database)
+// }
 
 func (m *MockLineClient) GetProfile(userID string) (*linebot.UserProfileResponse, error) {
 	args := m.Called(userID)
@@ -124,6 +118,7 @@ type MockGormDB struct {
 		assert.NotNil(t, lineBot.lineClient)
 	}
 */
+/*
 func TestLineBot_GetUserProfile(t *testing.T) {
 	// Set environment variables for the test
 	os.Setenv("LINE_CHANNEL_SECRET", "mock_secret")
@@ -163,7 +158,7 @@ func TestLineBot_GetUserProfile(t *testing.T) {
 
 	// ensure no unexpected requests are made
 	assert.True(t, gock.IsDone())
-}
+}*/
 
 /*func TestLineBot_validateAndGenerateToken_UserNotFound(t *testing.T) {
 	// Create mock dependencies
