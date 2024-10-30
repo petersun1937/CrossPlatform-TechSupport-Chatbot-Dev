@@ -114,3 +114,22 @@ func (h *Handler) HandlerDocumentUpload(c *gin.Context) {
 	})
 	//c.JSON(http.StatusOK, gin.H{"message": "Document processed successfully"})
 }
+
+// HandlerGetDocuments handles the retrieval of uploaded documents
+func (h *Handler) HandlerGetDocuments(c *gin.Context) {
+	//fmt.Println("GET request received at /api/document/list")
+
+	// Set CORS headers explicitly for the GET request
+	/*c.Header("Access-Control-Allow-Origin", "*") // Allow all origins
+	c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")*/
+
+	filenames, err := h.Service.GetUploadedDocuments()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve documents"})
+		return
+	}
+
+	// Return only the filenames as a JSON array
+	c.JSON(http.StatusOK, gin.H{"filenames": filenames})
+}

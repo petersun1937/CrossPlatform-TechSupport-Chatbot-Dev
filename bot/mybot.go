@@ -215,28 +215,6 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return fmt.Errorf("invalid identifier type for frontend platform")
 }*/
 
-/*func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, overlap int) error {
-	// Chunk the document using the semantic chunking logic
-	chunks, chunkEmbeddings, err := utils.SemanticChunk(text, 0.3) // Now returns both chunks and their embeddings
-	if err != nil {
-		return fmt.Errorf("error splitting chunks: %v", err)
-	}
-
-	// Store each chunk and its embedding in the database
-	for i, chunk := range chunks {
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-
-		// Store the chunk and its embedding
-		err := b.Service.StoreDocumentEmbedding(chunkID, chunk, chunkEmbeddings[i])
-		if err != nil {
-			return fmt.Errorf("error storing chunk %d: %v", i, err)
-		}
-	}
-
-	fmt.Println("Document embedding and storage complete.")
-	return nil
-}*/
-
 func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize, overlap int) error {
 	// Chunk the document with overlap
 	chunks := document.OverlapChunk(text, chunkSize, overlap)
@@ -262,30 +240,6 @@ func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize
 	fmt.Println("Document embedding complete.")
 	return nil
 }
-
-/*func (b *generalBot) StoreDocumentChunks(docID string, text string, chunkSize int, minChunkSize int) error {
-	// Chunk the document using the chunking logic
-	chunks, err := utils.SemanticChunk(text, 0.5)
-	//chunks := utils.ChunkSmartly(text, chunkSize, minChunkSize)
-	if err != nil {
-		return fmt.Errorf("error splitting chunks: %v", err)
-	}
-
-	for i, chunk := range chunks {
-		// Get the embeddings for each chunk
-		embedding, err := openai.EmbedText(chunk)
-		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
-		}
-
-		// Create a unique chunk ID for storage in the database
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		// Store each chunk and its embedding
-		b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
-	}
-	fmt.Println("Document embedding complete.")
-	return nil
-}*/
 
 func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)

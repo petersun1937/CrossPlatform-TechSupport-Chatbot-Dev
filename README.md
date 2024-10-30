@@ -20,8 +20,8 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
 <!---   Handles FAQs, troubleshooting, and customer inquiries -->
 
 ## Demo
-- **Video Demo**: [Coming Soon]
-- **Live Demo**: [Coming Soon]
+<!---   - **Video Demo**: [Coming Soon] -->
+- **Live Demo**: https://petersun1937.github.io/Custom_Frontend_Chatbot
 
 ## How It Works
 - Users interact with the chatbot through various platforms (support FB Messenger, Telegram, LINE, or custom platform).
@@ -36,7 +36,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
 - **Backend**: Go (Gin framework)
 - **Database**: PostgreSQL
 - **APIs**: OpenAI API, Dialogflow, META APIs, Telegram API, LINE API
-<!---  **Cloud**: AWS (for deployment) -->
+- **Cloud**: Heroku (backend deployment), Github Page (frontend deployment)
 
 
 
@@ -89,7 +89,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
         ```
 -->
         
-
+<!--- 
 - **Frontend Setup**:
    - Navigate to `React_custom_frontend/`:
      ```bash
@@ -98,6 +98,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
      npm start
      ```
    - The frontend will run at [http://localhost:3000](http://localhost:3000).
+   -->
 
 
 
