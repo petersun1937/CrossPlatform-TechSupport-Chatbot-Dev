@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -91,4 +92,64 @@ func PostgresArrayToFloat64Slice(embeddingStr string) ([]float64, error) {
 	}
 
 	return floatValues, nil
+}
+
+func ParseEmbeddingString(embeddingStr string) ([]float64, error) {
+	// Remove curly braces and split by commas
+	trimmed := strings.Trim(embeddingStr, "{}")
+	parts := strings.Split(trimmed, ",")
+
+	embedding := make([]float64, len(parts))
+	for i, part := range parts {
+		value, err := strconv.ParseFloat(strings.TrimSpace(part), 64)
+		if err != nil {
+			return nil, err
+		}
+		embedding[i] = value
+	}
+
+	return embedding, nil
+}
+
+func AverageEmbeddings(embeddings [][]float64) ([]float64, error) {
+	if len(embeddings) == 0 {
+		return nil, fmt.Errorf("no embeddings provided")
+	}
+
+	length := len(embeddings[0])
+	combinedEmbedding := make([]float64, length)
+
+	for _, embedding := range embeddings {
+		for i := range embedding {
+			combinedEmbedding[i] += embedding[i]
+		}
+	}
+
+	// Divide each element by the number of embeddings to get the average
+	for i := range combinedEmbedding {
+		combinedEmbedding[i] /= float64(len(embeddings))
+	}
+
+	return combinedEmbedding, nil
+}
+
+// Compute similarity score
+func CosineSimilarity(vec1, vec2 []float64) float64 {
+	/*var dotProduct, normA, normB float64
+	for i := 0; i < len(vec1); i++ {
+		dotProduct += vec1[i] * vec2[i] // Calculate the dot product of vec1 and vec2
+		normA += vec1[i] * vec1[i]      // Calculate the sum of squares of vec1
+		normB += vec2[i] * vec2[i]      // Calculate the sum of squares of vec2
+	}
+	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB)) // Return the cosine similarity*/
+	var dotProduct, magnitudeVec1, magnitudeVec2 float64
+	for i := range vec1 {
+		dotProduct += vec1[i] * vec2[i]
+		magnitudeVec1 += vec1[i] * vec1[i]
+		magnitudeVec2 += vec2[i] * vec2[i]
+	}
+	if magnitudeVec1 == 0 || magnitudeVec2 == 0 {
+		return 0
+	}
+	return dotProduct / (math.Sqrt(magnitudeVec1) * math.Sqrt(magnitudeVec2))
 }

@@ -4,6 +4,7 @@ import (
 	"crossplatform_chatbot/bot"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
+	"crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"fmt"
 	"log"
@@ -13,18 +14,52 @@ type Service struct {
 	bots       map[string]bot.Bot
 	database   database.Database // TODO
 	repository repository.DAO
+	client     *openai.Client
+	//TagEmbeddings map[string][]float64
 }
 
-func NewService(botConfig config.BotConfig, embConfig config.EmbeddingConfig, db database.Database) *Service {
+func NewService(botConfig config.BotConfig, embConfig *config.EmbeddingConfig, db database.Database) *Service {
+	// Initialize the DAO and OpenAI client
+	dao := repository.NewDAO(db)
+	openaiClient := openai.NewClient()
+
+	// Create a temporary Service instance to access methods like getOrInitializeTagEmbeddings
+	svc := &Service{
+		database:   db,
+		repository: dao,
+		client:     openaiClient,
+	}
+
+	// Retrieve or initialize TagEmbeddings and update embConfig
+	tagEmbeddings, err := svc.getOrInitializeTagEmbeddings()
+	if err != nil {
+		log.Fatalf("Failed to initialize tag embeddings: %v", err)
+	}
+	embConfig.TagEmbeddings = tagEmbeddings
+
+	// Now create bots with the updated embConfig
+	svc.bots = createBots(botConfig, *embConfig, db, dao)
+
+	return svc
+}
+
+/*func NewService(botConfig config.BotConfig, embConfig config.EmbeddingConfig, db database.Database) *Service {
 
 	dao := repository.NewDAO(db)
 
-	return &Service{
+	openaiClient := openai.NewClient()
+
+
+	// Create the Service instance without TagEmbeddings initially
+	svc := &Service{
 		bots:       createBots(botConfig, embConfig, db, dao),
 		database:   db,
 		repository: dao,
+		client:     openaiClient,
 	}
-}
+
+	return svc
+}*/
 
 func (s *Service) RunBots() error {
 
@@ -134,6 +169,50 @@ func (s *Service) GetUploadedDocuments() ([]string, error) {
 	}
 
 	return uniqueFilenames, nil
+}
+
+// This method checks if the tag_embeddings table has data. If not, it generates embeddings using OpenAI,
+// stores them in the database, and then loads them for use.
+func (s *Service) getOrInitializeTagEmbeddings() (map[string][]float64, error) {
+	// Attempt to retrieve tag embeddings from the database
+	tagEmbeddings, err := s.repository.RetrieveTagEmbeddings()
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve tag embeddings: %v", err)
+	}
+
+	// If tagEmbeddings is empty, initialize them
+	if len(tagEmbeddings) == 0 {
+		err = s.initializeAndStoreTagEmbeddings()
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize tag embeddings: %v", err)
+		}
+	}
+
+	return tagEmbeddings, nil
+}
+
+// Define the metatags and get embeddings from openai
+func (s *Service) initializeAndStoreTagEmbeddings() error {
+	tagDescriptions := map[string]string{
+		"Account & Billing":                "Information related to account management and billing issues.",
+		"Technical Troubleshooting":        "Assistance with troubleshooting technical issues and errors.",
+		"Product Information":              "Details about product specifications, pricing, and features.",
+		"User Guide, Instruction & How-To": "Step-by-step instructions and best practices.",
+		"Security & Privacy":               "Information on security measures and privacy policies.",
+		"Shipping & Returns":               "Details about shipping, delivery, and return policies.",
+		"Feedback & Support Contact":       "Channels for customer feedback, complaints, and support inquiries.",
+		"Warranty & Repairs":               "Information on warranty coverage and repair services.",
+		"Legal & Compliance":               "Legal terms, compliance, and policies.",
+	}
+
+	// Use DAO to store tag embeddings by passing tagDescriptions and the embedding function
+	err := s.repository.StoreTagEmbeddings(tagDescriptions, s.client.EmbedText)
+	if err != nil {
+		return fmt.Errorf("failed to initialize and store tag embeddings: %v", err)
+	}
+
+	return nil
+	//return tagEmbeddings, nil
 }
 
 // // GetDB returns the gorm.DB instance from the service's database

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -99,8 +100,11 @@ func (h *Handler) HandlerDocumentUpload(c *gin.Context) {
 
 	b := h.Service.GetBot("general").(bot.GeneralBot)
 
+	// Generate a unique document ID
+	uniqueDocID := uuid.New().String()
+
 	// Call bot to process the document
-	err = b.ProcessDocument(file.Filename, sessionID, filePath)
+	err = b.ProcessDocument(file.Filename, uniqueDocID, filePath)
 	if err != nil {
 		fmt.Printf("Error processing document: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

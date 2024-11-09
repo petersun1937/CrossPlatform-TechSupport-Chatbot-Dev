@@ -296,7 +296,7 @@ func (b *igBot) processUserMessage(senderID, text string) {
 		response = strings.ToUpper(text)
 	} else {
 		// Fetch document embeddings and try to match based on similarity
-		documentEmbeddings, chunkText, err := b.dao.FetchEmbeddings()
+		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
 		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)

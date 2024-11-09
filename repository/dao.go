@@ -12,9 +12,13 @@ import (
 type DAO interface {
 	CreateUser(userIDStr string, req ValidateUserReq) error
 	GetUser(userIDStr string) (*models.User, error)
-	CreateDocumentEmbedding(filename, docID, docText string, embedding []float64) error
+	CreateDocumentEmbedding(filename, docID, chunkID, docText string, embedding []float64) error
 	FetchEmbeddings() (map[string][]float64, map[string]string, error)
 	GetAllDocuments() ([]models.Document, error)
+	SaveDocumentMetadata(docID string, tags []string) error
+	GetChunkEmbeddings(docID string) ([][]float64, error)
+	RetrieveTagEmbeddings() (map[string][]float64, error)
+	StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc func(string) ([]float64, error)) error
 }
 
 // dao struct implements the DAO interface.
@@ -63,13 +67,14 @@ func (d *dao) GetUser(userIDStr string) (*models.User, error) {
 }
 
 // CreateDocumentEmbedding stores the document and its embedding into the database.
-func (d *dao) CreateDocumentEmbedding(filename, docID, docText string, embedding []float64) error {
+func (d *dao) CreateDocumentEmbedding(filename, docID, chunkID, docText string, embedding []float64) error {
 	docText = utils.SanitizeText(docText)
 	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
 
 	docEmbedding := models.Document{
 		Filename:  filename,
 		DocID:     docID,
+		ChunkID:   chunkID,
 		DocText:   docText,
 		Embedding: embeddingStr,
 		CreatedAt: time.Now(),
@@ -112,6 +117,70 @@ func (d *dao) GetAllDocuments() ([]models.Document, error) {
 	}
 
 	return documents, nil
+}
+
+func (d *dao) GetChunkEmbeddings(docID string) ([][]float64, error) {
+	var chunks []models.Document
+	if err := d.db.GetDB().Where("doc_id = ?", docID).Find(&chunks).Error; err != nil {
+		return nil, fmt.Errorf("error retrieving chunks for docID %s: %w", docID, err)
+	}
+
+	var embeddings [][]float64
+	for _, chunk := range chunks {
+		embedding, err := utils.ParseEmbeddingString(chunk.Embedding)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing embedding for chunk %s: %w", chunk.ChunkID, err)
+		}
+		embeddings = append(embeddings, embedding)
+	}
+
+	return embeddings, nil
+}
+
+// Saves the metadata for the documents to database.
+func (d *dao) SaveDocumentMetadata(docID string, tags []string) error {
+	metadata := models.DocumentMetadata{
+		DocID:     docID,
+		Tags:      tags,
+		CreatedAt: time.Now(),
+	}
+	return d.db.GetDB().Create(&metadata).Error
+}
+
+// RetrieveTagEmbeddings gets embeddings for tags and stores from the database
+func (d *dao) RetrieveTagEmbeddings() (map[string][]float64, error) {
+	var tagEmbeddings []models.TagEmbedding
+
+	// Use GORM's Raw query to fetch tag embeddings
+	if err := d.db.GetDB().Raw("SELECT tag_name, embedding FROM tag_embeddings").Scan(&tagEmbeddings).Error; err != nil {
+		return nil, fmt.Errorf("error retrieving tag embeddings: %v", err)
+	}
+
+	// Convert to map format
+	embeddingsMap := make(map[string][]float64)
+	for _, tagEmbedding := range tagEmbeddings {
+		embeddingsMap[tagEmbedding.TagName] = tagEmbedding.Embedding
+	}
+
+	return embeddingsMap, nil
+}
+
+// StoreTagEmbeddings generates embeddings for tags and stores them in the database
+func (d *dao) StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc func(string) ([]float64, error)) error {
+	for tag, description := range tagDescriptions {
+		// Generate the embedding for each tag using the provided embed function
+		embedding, err := embedFunc(description)
+		if err != nil {
+			return fmt.Errorf("error generating embedding for tag %s: %v", tag, err)
+		}
+
+		// Insert the tag and embedding into the database
+		query := `INSERT INTO tag_embeddings (tag_name, embedding) VALUES ($1, $2) ON CONFLICT (tag_name) DO NOTHING`
+		if err := d.db.GetDB().Exec(query, tag, embedding).Error; err != nil {
+			return fmt.Errorf("error inserting tag embedding for %s: %v", tag, err)
+		}
+	}
+	return nil
 }
 
 /*// database access object

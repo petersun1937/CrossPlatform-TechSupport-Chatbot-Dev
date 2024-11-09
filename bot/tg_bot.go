@@ -464,7 +464,7 @@ func (b *tgBot) StoreDocumentChunks(filename, docID, text string, chunkSize, min
 		}
 		//chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
 		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
-		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, chunkID, chunk, embedding) // Store each chunk with its embedding
+		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
 		if err != nil {
 			return fmt.Errorf("error storing chunks: %v", err)
 		}

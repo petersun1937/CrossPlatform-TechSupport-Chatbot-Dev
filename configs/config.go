@@ -67,6 +67,7 @@ type EmbeddingConfig struct {
 	MinChunkSize   int
 	ScoreThreshold float64
 	NumTopChunks   int
+	TagEmbeddings  map[string][]float64
 }
 
 // Singleton instance of Config
@@ -141,6 +142,7 @@ func loadConfig() error {
 			MinChunkSize:   getEnvInt("DOC_MIN_CHUNK_SIZE", 50),
 			ScoreThreshold: getEnvFloat("DOC_SCORE_THRESHOLD", 0.65),
 			NumTopChunks:   getEnvInt("DOC_NUM_TOP_CHUNKS", 10),
+			TagEmbeddings:  make(map[string][]float64),
 		},
 	}
 
