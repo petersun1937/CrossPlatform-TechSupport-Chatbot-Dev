@@ -5,6 +5,7 @@ import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
+	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"encoding/json"
 	"errors"
@@ -17,8 +18,9 @@ import (
 )
 
 type FbBot interface {
-	HandleMessengerMessage(senderID, messageText string)
 	Run() error
+	HandleMessengerMessage(senderID, messageText string)
+	SendResponse(identifier interface{}, response string) error
 }
 
 type fbBot struct {
@@ -37,10 +39,11 @@ func NewFBBot(conf config.BotConfig, database database.Database, dao repository.
 
 	return &fbBot{
 		BaseBot: BaseBot{
-			Platform: FACEBOOK,
-			conf:     conf,
-			database: database,
-			dao:      dao,
+			Platform:     FACEBOOK,
+			conf:         conf,
+			database:     database,
+			dao:          dao,
+			openAIclient: openai.NewClient(),
 		},
 	}, nil
 }
@@ -232,27 +235,27 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
 
 				// Call GPT with the context and user query
-				response, err = GetOpenAIResponse(gptPrompt)
+				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
 			} else {
 				// If no relevant document found, fallback to OpenAI response
-				response, err = GetOpenAIResponse(text)
+				response, err = b.BaseBot.GetOpenAIResponse(text)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
 			}
 		} else {
 			// Use Dialogflow if OpenAI is not enabled
-			handleMessageDialogflow(FACEBOOK, senderID, text, b)
+			b.BaseBot.handleMessageDialogflow(FACEBOOK, senderID, text, b)
 			return
 		}
 	}
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.sendResponse(senderID, response)
+		err = b.SendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
@@ -273,7 +276,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Facebook Messenger
-			return b.sendResponse(identifier, text.Text[0])
+			return b.SendResponse(identifier, text.Text[0])
 		}
 	}
 
@@ -281,7 +284,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) sendResponse(senderID interface{}, messageText string) error {
+func (b *fbBot) SendResponse(senderID interface{}, messageText string) error {
 	//conf := config.GetConfig()
 	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.conf.FacebookPageToken
 

@@ -12,6 +12,7 @@ import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
 	"crossplatform_chatbot/document"
+	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
@@ -21,6 +22,7 @@ type IgBot interface {
 	Run() error
 	//HandleInstagramWebhook(c *gin.Context, igBot IgBot)
 	HandleInstagramMessage(senderID, messageText string)
+	SendResponse(identifier interface{}, response string) error
 	//setWebhook(webhookURL string) error
 }
 
@@ -41,10 +43,11 @@ func NewIGBot(conf config.BotConfig, database database.Database, dao repository.
 
 	return &igBot{
 		BaseBot: BaseBot{
-			Platform: INSTAGRAM,
-			conf:     conf,
-			database: database,
-			dao:      dao,
+			Platform:     INSTAGRAM,
+			conf:         conf,
+			database:     database,
+			dao:          dao,
+			openAIclient: openai.NewClient(),
 		},
 	}, nil
 }
@@ -208,7 +211,7 @@ func (b *igBot) HandleInstagramMessage(senderID, messageText string) {
 // }
 
 // sendResponse sends a message to the specified user on Instagram
-func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
+func (b *igBot) SendResponse(senderID interface{}, messageText string) error {
 
 	//conf := config.GetConfig()
 	url := fmt.Sprintf("https://graph.facebook.com/v17.0/me/messages?access_token=%s", b.conf.InstagramPageToken)
@@ -274,7 +277,7 @@ func (b *igBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Instagram
-			return b.sendResponse(senderID, text.Text[0])
+			return b.SendResponse(senderID, text.Text[0])
 		}
 	}
 
@@ -313,27 +316,27 @@ func (b *igBot) processUserMessage(senderID, text string) {
 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
 
 				// Call GPT with the context and user query
-				response, err = GetOpenAIResponse(gptPrompt)
+				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
 			} else {
 				// If no relevant document found, fallback to OpenAI response
-				response, err = GetOpenAIResponse(text)
+				response, err = b.BaseBot.GetOpenAIResponse(text)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
 			}
 		} else {
 			// Use Dialogflow if OpenAI is not enabled
-			handleMessageDialogflow(INSTAGRAM, senderID, text, b)
+			b.BaseBot.handleMessageDialogflow(INSTAGRAM, senderID, text, b)
 			return
 		}
 	}
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.sendResponse(senderID, response)
+		err = b.SendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}

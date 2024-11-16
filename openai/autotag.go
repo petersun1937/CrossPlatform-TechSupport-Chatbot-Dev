@@ -17,7 +17,7 @@ func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 		"Product Information", "User Guide & How-To", "Software Updates & Maintenance", "Security & Privacy", "Feedback & Contact Support"}
 
 	// Modify the prompt to include predefined tags
-	prompt := fmt.Sprintf("From specifically the following tags: [ %s ], provide a comma-separated list of relevant tags (only tags, no explanations, DO NOT use undefined tags) for the following content: %s",
+	prompt := fmt.Sprintf("From specifically the following tags: [ %s ], provide a comma-separated list of most relevant tags (only tags, no explanations, DO NOT use undefined tags) for the following content: %s",
 		strings.Join(predefinedTags, ", "), docText)
 
 	// Prepare the request

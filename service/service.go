@@ -215,6 +215,48 @@ func (s *Service) initializeAndStoreTagEmbeddings() error {
 	//return tagEmbeddings, nil
 }
 
+// func (s *Service) ProcessIntentWithRAG(request *dialogflowpb.WebhookRequest) (gin.H, error) {
+// 	intent := request.QueryResult.Intent.DisplayName
+// 	var tags []string
+
+// 	// Match the intent to relevant tags
+// 	switch intent {
+// 	case "FAQ Intent":
+// 		tags = []string{"FAQs", "Product Information", "User Guide & How-To"}
+// 	case "Product Inquiry Intent":
+// 		tags = []string{"Product Information", "Account & Billing", "Order Status & Tracking"}
+// 	case "Troubleshooting Intent":
+// 		tags = []string{"Technical Troubleshooting", "Installation & Setup", "Security & Privacy"}
+// 	case "Installation Intent":
+// 		tags = []string{"Installation & Setup"}
+// 	// Add more cases as needed
+// 	default:
+// 		return gin.H{"fulfillmentText": "Intent not recognized for RAG context."}, nil
+// 	}
+
+// 	// Retrieve document chunks based on tags
+// 	contextChunks, err := s.retrieveChunksByTags(tags)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
+// 	}
+
+// 	// Join chunks to create a context for RAG
+// 	context := strings.Join(contextChunks, "\n")
+
+// 	// Formulate the prompt with context for OpenAI
+// 	userQuery := request.QueryResult.QueryText
+// 	prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, userQuery)
+
+// 	// Get response from OpenAI
+// 	ragResponse, err := s.client.GetResponse(prompt)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error generating RAG response: %w", err)
+// 	}
+
+// 	// Send the RAG-generated response back to Dialogflow
+// 	return gin.H{"fulfillmentText": ragResponse}, nil
+// }
+
 // // GetDB returns the gorm.DB instance from the service's database
 // func (s *Service) GetDB() *gorm.DB {
 // 	return s.database.GetDB()

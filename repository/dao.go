@@ -6,6 +6,8 @@ import (
 	"crossplatform_chatbot/utils"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // DAO interface defines all necessary methods for different entities.
@@ -19,6 +21,7 @@ type DAO interface {
 	GetChunkEmbeddings(docID string) ([][]float64, error)
 	RetrieveTagEmbeddings() (map[string][]float64, error)
 	StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc func(string) ([]float64, error)) error
+	GetDocumentChunksByTags(tags []string) ([]models.Document, error)
 }
 
 // dao struct implements the DAO interface.
@@ -181,6 +184,32 @@ func (d *dao) StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc fu
 		}
 	}
 	return nil
+}
+
+// GetDocumentChunksByTags retrieves document chunks based on tags.
+func (d *dao) GetDocumentChunksByTags(tags []string) ([]models.Document, error) {
+	var docIDs []string
+
+	// Query the document_metadata table to get doc_ids where any of the tags match
+	err := d.db.GetDB().Table("document_metadata").
+		Where("tags && ?::text[]", pq.Array(tags)). // Use pq.Array and cast to text[]
+		Pluck("doc_id", &docIDs).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving doc_ids by tags: %w", err)
+	}
+
+	if len(docIDs) == 0 {
+		return nil, nil // No matching documents found for the tags
+	}
+
+	// Query the documents table to get the document chunks for the retrieved doc_ids
+	var documents []models.Document
+	err = d.db.GetDB().Where("doc_id IN ?", docIDs).Find(&documents).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
+	}
+
+	return documents, nil
 }
 
 /*// database access object

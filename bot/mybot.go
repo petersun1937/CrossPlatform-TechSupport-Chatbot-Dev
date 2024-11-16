@@ -17,6 +17,7 @@ import (
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(sessionID, message string)
+	SendResponse(identifier interface{}, response string) error
 	StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
 	ProcessDocument(Filename, sessionID, filePath string) error
 	StoreContext(sessionID string, c *gin.Context)
@@ -53,13 +54,13 @@ func NewGeneralBot(botconf config.BotConfig, embconf config.EmbeddingConfig, dat
 
 	return &generalBot{
 		BaseBot: BaseBot{
-			Platform: GENERAL,
-			conf:     botconf,
-			database: database,
-			dao:      dao,
+			Platform:     GENERAL,
+			conf:         botconf,
+			database:     database,
+			dao:          dao,
+			openAIclient: openai.NewClient(),
 		},
-		embConfig:    embconf,
-		openAIclient: openai.NewClient(),
+		embConfig: embconf,
 	}, nil
 }
 
@@ -126,13 +127,13 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
 
 				// Call GPT with the context and user query
-				response, err = GetOpenAIResponse(gptPrompt)
+				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
 			} else {
 				// If no relevant document found, fallback to OpenAI response
-				response, err = GetOpenAIResponse(message)
+				response, err = b.BaseBot.GetOpenAIResponse(message)
 				if err != nil {
 					response = fmt.Sprintf("OpenAI Error: %v", err)
 				}
@@ -140,13 +141,14 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 
 		} else {
 			//response = fmt.Sprintf("You said: %s", message)
-			handleMessageDialogflow(GENERAL, sessionID, message, b)
+			//HandleDialogflowIntent(message string) (string, error) {
+			b.BaseBot.handleMessageDialogflow(GENERAL, sessionID, message, b)
 		}
 	}
 
 	if response != "" {
 		fmt.Printf("Sent message %s \n", response)
-		err := b.sendResponse(sessionID, response)
+		err := b.SendResponse(sessionID, response)
 		if err != nil {
 			//c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while sending the response"})
 			fmt.Printf("An error occurred while sending the response: %s\n", err.Error())
@@ -155,7 +157,7 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 
 }
 
-func (b *generalBot) sendResponse(identifier interface{}, response string) error {
+func (b *generalBot) SendResponse(identifier interface{}, response string) error {
 	// Perform type assertion to convert identifier to string
 	if sessionID, ok := identifier.(string); ok {
 		// Retrieve context using the sessionID
@@ -199,7 +201,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	// Send the response to the respective platform or frontend
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
-			return b.sendResponse(identifier, text.Text[0])
+			return b.SendResponse(identifier, text.Text[0])
 		}
 	}
 	return fmt.Errorf("invalid identifier for frontend or platform")
