@@ -14,7 +14,7 @@ type Bot interface {
 	Run() error
 
 	//sendMenu(identifier interface{}) error
-	SendResponse(identifier interface{}, message string) error
+	sendResponse(identifier interface{}, message string) error
 	handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error
 }
 
@@ -25,6 +25,7 @@ type BaseBot struct {
 	database     database.Database
 	dao          repository.DAO
 	openAIclient *openai.Client
+	embConfig    config.EmbeddingConfig
 }
 
 // define platforms

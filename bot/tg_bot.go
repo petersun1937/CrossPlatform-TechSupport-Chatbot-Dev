@@ -4,7 +4,7 @@ import (
 	"bytes"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/document"
+	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
@@ -26,13 +26,13 @@ type TgBot interface {
 	setWebhook(webhookURL string) error
 	HandleTelegramUpdate(update tgbotapi.Update)
 	StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error
-	SendResponse(identifier interface{}, response string) error
+	//sendResponse(identifier interface{}, response string) error
 }
 
 type tgBot struct {
 	BaseBot
 	// conf         config.BotConfig
-	embConfig config.EmbeddingConfig
+	//embConfig config.EmbeddingConfig
 	// ctx          context.Context
 	// token        string
 	botApi       *tgbotapi.BotAPI
@@ -89,9 +89,9 @@ func NewTGBot(botconf config.BotConfig, embconf config.EmbeddingConfig, database
 			database:     database,
 			dao:          dao,
 			openAIclient: openai.NewClient(),
+			embConfig:    embconf,
 		},
-		botApi:    botApi,
-		embConfig: embconf,
+		botApi: botApi,
 		//openAIclient: openai.NewClient(),
 	}, nil
 }
@@ -225,7 +225,7 @@ func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bo
 
 			// Send a welcome message to the new user.
 			welcomeMessage := fmt.Sprintf("Welcome, %s!", user.UserName)
-			if err := b.SendResponse(message, welcomeMessage); err != nil {
+			if err := b.sendResponse(message, welcomeMessage); err != nil {
 				return false, fmt.Errorf("error sending welcome message: %w", err)
 			}
 
@@ -371,7 +371,7 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if _, ok := identifier.(*tgbotapi.Message); ok {
 			if text := msg.GetText(); text != nil {
-				return b.SendResponse(identifier, text.Text[0])
+				return b.sendResponse(identifier, text.Text[0])
 			}
 		}
 	}
@@ -379,7 +379,7 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // Check identifier and send message via Telegram
-func (b *tgBot) SendResponse(identifier interface{}, response string) error {
+func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
 		return b.sendTelegramMessage(message.Chat.ID, response)
 	} else {

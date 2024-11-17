@@ -11,7 +11,7 @@ import (
 
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/document"
+	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 
@@ -22,7 +22,7 @@ type IgBot interface {
 	Run() error
 	//HandleInstagramWebhook(c *gin.Context, igBot IgBot)
 	HandleInstagramMessage(senderID, messageText string)
-	SendResponse(identifier interface{}, response string) error
+	//sendResponse(identifier interface{}, response string) error
 	//setWebhook(webhookURL string) error
 }
 
@@ -35,7 +35,7 @@ type igBot struct {
 }
 
 // creates a new IGBot instance
-func NewIGBot(conf config.BotConfig, database database.Database, dao repository.DAO) (*igBot, error) {
+func NewIGBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*igBot, error) {
 	// Verify that the page access token is available
 	if conf.InstagramPageToken == "" {
 		return nil, errors.New(" Instagram Page Access Token is not provided")
@@ -48,6 +48,7 @@ func NewIGBot(conf config.BotConfig, database database.Database, dao repository.
 			database:     database,
 			dao:          dao,
 			openAIclient: openai.NewClient(),
+			embConfig:    embconf,
 		},
 	}, nil
 }
@@ -211,7 +212,7 @@ func (b *igBot) HandleInstagramMessage(senderID, messageText string) {
 // }
 
 // sendResponse sends a message to the specified user on Instagram
-func (b *igBot) SendResponse(senderID interface{}, messageText string) error {
+func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
 
 	//conf := config.GetConfig()
 	url := fmt.Sprintf("https://graph.facebook.com/v17.0/me/messages?access_token=%s", b.conf.InstagramPageToken)
@@ -277,7 +278,7 @@ func (b *igBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Instagram
-			return b.SendResponse(senderID, text.Text[0])
+			return b.sendResponse(senderID, text.Text[0])
 		}
 	}
 
@@ -336,7 +337,7 @@ func (b *igBot) processUserMessage(senderID, text string) {
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.SendResponse(senderID, response)
+		err = b.sendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}

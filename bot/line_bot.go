@@ -3,7 +3,7 @@ package bot
 import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/document"
+	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
@@ -21,7 +21,7 @@ type LineBot interface {
 	Run() error
 	ParseRequest(req *http.Request) ([]*linebot.Event, error)
 	HandleLineMessage(event *linebot.Event, message *linebot.TextMessage)
-	SendResponse(identifier interface{}, response string) error
+	//sendResponse(identifier interface{}, response string) error
 }
 
 type lineBot struct {
@@ -33,7 +33,7 @@ type lineBot struct {
 	//service    *service.Service
 }
 
-func NewLineBot(conf config.BotConfig, database database.Database, dao repository.DAO) (*lineBot, error) {
+func NewLineBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*lineBot, error) {
 	lineClient, err := linebot.New(conf.LineChannelSecret, conf.LineChannelToken)
 	if err != nil {
 		return nil, err
@@ -46,6 +46,7 @@ func NewLineBot(conf config.BotConfig, database database.Database, dao repositor
 			database:     database,
 			dao:          dao,
 			openAIclient: openai.NewClient(),
+			embConfig:    embconf,
 		},
 		lineClient: lineClient,
 	}, nil
@@ -280,7 +281,7 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.SendResponse(event, response)
+		err = b.sendResponse(event, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
@@ -295,7 +296,7 @@ func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentRe
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if _, ok := identifier.(*linebot.Event); ok {
 			if text := msg.GetText(); text != nil {
-				return b.SendResponse(identifier, text.Text[0])
+				return b.sendResponse(identifier, text.Text[0])
 			}
 		}
 	}
@@ -303,7 +304,7 @@ func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentRe
 }
 
 // Check identifier and send message via LINE
-func (b *lineBot) SendResponse(identifier interface{}, response string) error {
+func (b *lineBot) sendResponse(identifier interface{}, response string) error {
 	if event, ok := identifier.(*linebot.Event); ok { // Assertion to check if identifier is of type linebot.Event
 		return b.sendLineMessage(event.ReplyToken, response)
 	} else {

@@ -1,4 +1,4 @@
-package document
+package document_proc
 
 import (
 	config "crossplatform_chatbot/configs"
@@ -26,6 +26,7 @@ func GetRelevantTags(queryEmbedding []float64, tagEmbeddings map[string][]float6
 	return relevantTags
 }
 
+// StoreDocumentChunks splits the given text into chunks and embed them one by one via embedding model
 func StoreDocumentChunks(Filename, sessionID, text string, embConfig config.EmbeddingConfig, client *openai.Client, dao repository.DAO) error {
 	// Chunk text and embed each chunk
 	chunks := OverlapChunk(text, embConfig.ChunkSize, embConfig.MinChunkSize)
@@ -43,6 +44,7 @@ func StoreDocumentChunks(Filename, sessionID, text string, embConfig config.Embe
 	return nil
 }
 
+// AutoTagDocumentEmbeddings
 func AutoTagDocumentEmbeddings(sessionID string, client *openai.Client, dao repository.DAO, tagEmbeddings map[string][]float64) ([]string, error) {
 	chunkEmbeddings, err := dao.GetChunkEmbeddings(sessionID)
 	if err != nil {

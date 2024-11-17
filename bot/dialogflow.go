@@ -1,6 +1,7 @@
 package bot
 
 import (
+	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/utils"
 	"fmt"
 	"strconv"
@@ -33,7 +34,7 @@ func (b *BaseBot) handleMessageDialogflow(platform Platform, identifier interfac
 	fmt.Printf("Captured Intent: %s\n", intent)
 
 	// Retrieve document context using intent-based tags
-	context, err := b.fetchDocumentContext(intent)
+	context, err := b.fetchDocumentContext(intent, msg)
 	if err != nil {
 		fmt.Printf("Error fetching document context: %v\n", err)
 		return
@@ -51,10 +52,40 @@ func (b *BaseBot) handleMessageDialogflow(platform Platform, identifier interfac
 	}
 
 	// Send final response back to the platform
-	if err := bot.SendResponse(sessionID, finalResponse); err != nil {
+	if err := bot.sendResponse(sessionID, finalResponse); err != nil {
 		fmt.Printf("Error sending response: %v\n", err)
 	}
 }
+
+// HandleDialogflowIntent processes the user message, maps the intent, and generates a response.
+// func (b *BaseBot) HandleDialogflowIntent(message string) (string, error) {
+// 	// Map user message to an intent
+// 	intent := mapIntent(message)
+
+// 	// Retrieve tags based on intent
+// 	tags := mapTags(intent)
+// 	if len(tags) == 0 {
+// 		return "Intent not recognized for RAG context.", nil
+// 	}
+
+// 	// Retrieve document chunks based on tags
+// 	contextChunks, err := b.retrieveChunksByTags(tags)
+// 	if err != nil {
+// 		return "", fmt.Errorf("error retrieving document chunks: %w", err)
+// 	}
+
+// 	// Create a prompt with context for OpenAI
+// 	context := strings.Join(contextChunks, "\n")
+// 	prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
+
+// 	// Get response from OpenAI
+// 	response, err := b.openAIclient.GetResponse(prompt)
+// 	if err != nil {
+// 		return "", fmt.Errorf("error generating RAG response: %w", err)
+// 	}
+
+// 	return response, nil
+// }
 
 // getSessionID extracts the session ID based on the platform and identifier
 func getSessionID(platform Platform, identifier interface{}) (string, error) {
@@ -84,6 +115,7 @@ func getSessionID(platform Platform, identifier interface{}) (string, error) {
 	}
 }
 
+// fetchDialogflowResponse sends the message to Dialogflow and retrieves the response with detected intent.
 func (b *BaseBot) fetchDialogflowResponse(sessionID, text string) (*dialogflowpb.DetectIntentResponse, error) {
 	conf := b.conf
 	response, err := utils.DetectIntentText(conf.DialogflowProjectID, sessionID, text, "en")
@@ -93,51 +125,42 @@ func (b *BaseBot) fetchDialogflowResponse(sessionID, text string) (*dialogflowpb
 	return response, nil
 }
 
-func (b *BaseBot) fetchDocumentContext(intent string) (string, error) {
+// fetchDocumentContext retrieves the document chunks based on the detected intent's associated tags.
+func (b *BaseBot) fetchDocumentContext(intent string, userMessage string) (string, error) {
 	// Define tags based on intent
 	tags := mapTags(intent)
-	if len(tags) == 0 {
-		return "", fmt.Errorf("no tags defined for intent: %s", intent)
+	var context string
+	var err error
+
+	if len(tags) > 0 {
+		// Use tag-based retrieval if tags are available
+		context, err = b.retrieveChunksByTags(tags)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		// Fallback to similarity-based chunk retrieval if no tags are found, same as basic OpenAI mode
+		context, err = b.fallbackContext(userMessage)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	// Retrieve document chunks from the database
-	contextChunks, err := b.retrieveChunksByTags(tags)
-	if err != nil {
-		return "", fmt.Errorf("error retrieving document chunks: %w", err)
-	}
+	return context, nil
+	/*
+		if len(tags) == 0 {
+				return "", fmt.Errorf("no tags defined for intent: %s", intent)
+			}
 
-	// Combine chunks into a single context
-	return strings.Join(contextChunks, "\n"), nil
-}
+			// Retrieve document chunks from the database
+			contextChunks, err := b.retrieveChunksByTags(tags)
+			if err != nil {
+				return "", fmt.Errorf("error retrieving document chunks: %w", err)
+			}
 
-// HandleDialogflowIntent processes the user message, maps the intent, and generates a response.
-func (b *BaseBot) HandleDialogflowIntent(message string) (string, error) {
-	// Map user message to an intent
-	intent := mapIntent(message)
-
-	// Retrieve tags based on intent
-	tags := mapTags(intent)
-	if len(tags) == 0 {
-		return "Intent not recognized for RAG context.", nil
-	}
-
-	// Retrieve document chunks based on tags
-	contextChunks, err := b.retrieveChunksByTags(tags)
-	if err != nil {
-		return "", fmt.Errorf("error retrieving document chunks: %w", err)
-	}
-
-	// Create a prompt with context for OpenAI
-	context := strings.Join(contextChunks, "\n")
-	prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
-
-	// Get response from OpenAI
-	response, err := b.openAIclient.GetResponse(prompt)
-	if err != nil {
-		return "", fmt.Errorf("error generating RAG response: %w", err)
-	}
-
-	return response, nil
+			// Combine chunks into a single context
+			return strings.Join(contextChunks, "\n"), nil
+	*/
 }
 
 // mapIntent maps user input to predefined intents.
@@ -156,7 +179,7 @@ func mapIntent(message string) string {
 	}
 }
 
-// mapTags returns tags associated with an intent.
+// Defines tags associated with an intent.
 func mapTags(intent string) []string {
 	switch intent {
 	case "FAQ Intent":
@@ -172,12 +195,38 @@ func mapTags(intent string) []string {
 	}
 }
 
+// retrieveChunksByTags fetches document chunks that match the specified tags and ranks them by similarity.
+// func (b *BaseBot) retrieveChunksByTags(tags []string, userMessage string) (string, error) {
+// 	// Step 1: Fetch document embeddings for the matching tags
+// 	documentEmbeddings, chunkText, err := b.dao.GetDocumentChunksByTagsWithEmbeddings(tags)
+// 	if err != nil {
+// 		return "", fmt.Errorf("error retrieving document chunks by tags: %w", err)
+// 	}
+
+// 	if len(documentEmbeddings) == 0 {
+// 		return "", fmt.Errorf("no document chunks found for the specified tags")
+// 	}
+
+// 	// Step 2: Rank the retrieved chunks based on similarity to the user's query
+// 	topChunks, err := document.RetrieveTopNChunks(userMessage, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold)
+// 	if err != nil {
+// 		return "", fmt.Errorf("error ranking document chunks by similarity: %w", err)
+// 	}
+
+// 	if len(topChunks) == 0 {
+// 		return "", fmt.Errorf("no relevant document chunks found based on similarity")
+// 	}
+
+// 	// Step 3: Combine the top-ranked chunks into a single context string
+// 	return strings.Join(topChunks, "\n"), nil
+// }
+
 // retrieveChunksByTags fetches document chunks that match the specified tags
-func (b *BaseBot) retrieveChunksByTags(tags []string) ([]string, error) {
+func (b *BaseBot) retrieveChunksByTags(tags []string) (string, error) {
 	// Fetch document embeddings from the database where tags match
 	documentEmbeddings, err := b.dao.GetDocumentChunksByTags(tags)
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
+		return "", fmt.Errorf("error retrieving document chunks: %w", err)
 	}
 
 	// Extract text content from matched embeddings
@@ -186,5 +235,26 @@ func (b *BaseBot) retrieveChunksByTags(tags []string) ([]string, error) {
 		contextChunks = append(contextChunks, chunk.DocText)
 	}
 
-	return contextChunks, nil
+	return strings.Join(contextChunks, "\n"), nil
+}
+
+// fallbackContext retrieves document chunks based on similarity to the user's message, functions as basic openAI mode.
+func (b *BaseBot) fallbackContext(userMessage string) (string, error) {
+	// Fetch all document embeddings and chunk text
+	documentEmbeddings, chunkText, err := b.dao.FetchEmbeddings()
+	if err != nil {
+		return "", fmt.Errorf("error fetching embeddings: %w", err)
+	}
+
+	// Use similarity-based chunk retrieval
+	topChunks, err := document.RetrieveTopNChunks(userMessage, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold)
+	if err != nil {
+		return "", fmt.Errorf("error retrieving similar document chunks: %w", err)
+	}
+
+	if len(topChunks) == 0 {
+		return "", fmt.Errorf("no relevant document chunks found for the user message")
+	}
+
+	return strings.Join(topChunks, "\n"), nil
 }

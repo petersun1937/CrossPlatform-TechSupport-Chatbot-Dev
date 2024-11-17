@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Generate tags using OpenAI API
+// Prompt based tag generation using OpenAI API
 func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 	// Define the prompt for tag generation
 	//prompt := fmt.Sprintf("Suggest relevant tags for the following content: %s", docText)
@@ -22,7 +22,7 @@ func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 
 	// Prepare the request
 	request := map[string]interface{}{
-		"model":      "gpt-3.5-turbo-instruct", // Set the model, or fetch it from environment/config
+		"model":      c.TagModel,
 		"prompt":     prompt,
 		"max_tokens": 50,
 	}
@@ -44,7 +44,7 @@ func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 		return nil, fmt.Errorf("error parsing response: %v", err)
 	}
 
-	fmt.Printf("Full API response: %+v\n", result) // Log the response for debugging
+	fmt.Printf("Full API response: %+v\n", result)
 
 	// Extract the text response
 	choices, ok := result["choices"].([]interface{})

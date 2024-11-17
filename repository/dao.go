@@ -186,7 +186,7 @@ func (d *dao) StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc fu
 	return nil
 }
 
-// GetDocumentChunksByTags retrieves document chunks based on tags.
+// GetDocumentChunksByTags retrieves document chunks matching the specified tags and decodes their embeddings.
 func (d *dao) GetDocumentChunksByTags(tags []string) ([]models.Document, error) {
 	var docIDs []string
 
@@ -209,8 +209,43 @@ func (d *dao) GetDocumentChunksByTags(tags []string) ([]models.Document, error) 
 		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
 	}
 
+	// Decode embeddings and replace the string with the decoded embeddings
+	for i, doc := range documents {
+		embedding, err := utils.PostgresArrayToFloat64Slice(doc.Embedding)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding embedding for document: %w", err)
+		}
+		documents[i].Embedding = utils.Float64SliceToPostgresArray(embedding) // Encode back if needed, or just use decoded embedding downstream
+	}
+
 	return documents, nil
 }
+
+// // GetDocumentChunksByTags retrieves document chunks based on tags.
+// func (d *dao) GetDocumentChunksByTags(tags []string) ([]models.Document, error) {
+// 	var docIDs []string
+
+// 	// Query the document_metadata table to get doc_ids where any of the tags match
+// 	err := d.db.GetDB().Table("document_metadata").
+// 		Where("tags && ?::text[]", pq.Array(tags)). // Use pq.Array and cast to text[]
+// 		Pluck("doc_id", &docIDs).Error
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error retrieving doc_ids by tags: %w", err)
+// 	}
+
+// 	if len(docIDs) == 0 {
+// 		return nil, nil // No matching documents found for the tags
+// 	}
+
+// 	// Query the documents table to get the document chunks for the retrieved doc_ids
+// 	var documents []models.Document
+// 	err = d.db.GetDB().Where("doc_id IN ?", docIDs).Find(&documents).Error
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
+// 	}
+
+// 	return documents, nil
+// }
 
 /*// database access object
 type GormDB struct {

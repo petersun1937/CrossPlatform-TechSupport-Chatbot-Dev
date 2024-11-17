@@ -14,6 +14,7 @@ type Client struct {
 	ApiKey   string
 	MsgModel string
 	EmbModel string
+	TagModel string
 	Client   *resty.Client
 }
 
@@ -26,6 +27,7 @@ func NewClient() *Client {
 		ApiKey:   conf.OpenaiAPIKey,
 		MsgModel: conf.OpenaiMsgModel,
 		EmbModel: conf.OpenaiEmbModel,
+		TagModel: conf.OpenaiTagModel,
 		Client:   client,
 	}
 }

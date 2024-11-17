@@ -3,7 +3,7 @@ package bot
 import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/document"
+	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"fmt"
@@ -17,7 +17,7 @@ import (
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(sessionID, message string)
-	SendResponse(identifier interface{}, response string) error
+	//sendResponse(identifier interface{}, response string) error
 	StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
 	ProcessDocument(Filename, sessionID, filePath string) error
 	StoreContext(sessionID string, c *gin.Context)
@@ -29,7 +29,7 @@ type generalBot struct {
 	BaseBot
 	//ctx context.Context
 	// conf         config.BotConfig
-	embConfig    config.EmbeddingConfig
+	//embConfig    config.EmbeddingConfig
 	openAIclient *openai.Client
 	//config map[string]string
 }
@@ -59,8 +59,8 @@ func NewGeneralBot(botconf config.BotConfig, embconf config.EmbeddingConfig, dat
 			database:     database,
 			dao:          dao,
 			openAIclient: openai.NewClient(),
+			embConfig:    embconf,
 		},
-		embConfig: embconf,
 	}, nil
 }
 
@@ -148,7 +148,7 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 
 	if response != "" {
 		fmt.Printf("Sent message %s \n", response)
-		err := b.SendResponse(sessionID, response)
+		err := b.sendResponse(sessionID, response)
 		if err != nil {
 			//c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while sending the response"})
 			fmt.Printf("An error occurred while sending the response: %s\n", err.Error())
@@ -157,7 +157,7 @@ func (b *generalBot) ProcessUserMessage(sessionID string, message string) {
 
 }
 
-func (b *generalBot) SendResponse(identifier interface{}, response string) error {
+func (b *generalBot) sendResponse(identifier interface{}, response string) error {
 	// Perform type assertion to convert identifier to string
 	if sessionID, ok := identifier.(string); ok {
 		// Retrieve context using the sessionID
@@ -201,7 +201,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	// Send the response to the respective platform or frontend
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
-			return b.SendResponse(identifier, text.Text[0])
+			return b.sendResponse(identifier, text.Text[0])
 		}
 	}
 	return fmt.Errorf("invalid identifier for frontend or platform")

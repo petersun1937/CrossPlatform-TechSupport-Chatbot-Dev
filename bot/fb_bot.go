@@ -4,7 +4,7 @@ import (
 	"bytes"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	"crossplatform_chatbot/document"
+	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"encoding/json"
@@ -31,7 +31,7 @@ type fbBot struct {
 }
 
 // creates a new FbBot instance
-func NewFBBot(conf config.BotConfig, database database.Database, dao repository.DAO) (*fbBot, error) {
+func NewFBBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*fbBot, error) {
 	// Verify that the page access token is available
 	if conf.FacebookPageToken == "" {
 		return nil, errors.New("facebook Page Access Token is not provided")
@@ -44,6 +44,7 @@ func NewFBBot(conf config.BotConfig, database database.Database, dao repository.
 			database:     database,
 			dao:          dao,
 			openAIclient: openai.NewClient(),
+			embConfig:    embconf,
 		},
 	}, nil
 }
@@ -255,7 +256,7 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.SendResponse(senderID, response)
+		err = b.sendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
@@ -276,7 +277,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Facebook Messenger
-			return b.SendResponse(identifier, text.Text[0])
+			return b.sendResponse(identifier, text.Text[0])
 		}
 	}
 
@@ -284,7 +285,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) SendResponse(senderID interface{}, messageText string) error {
+func (b *fbBot) sendResponse(senderID interface{}, messageText string) error {
 	//conf := config.GetConfig()
 	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.conf.FacebookPageToken
 

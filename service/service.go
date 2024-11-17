@@ -30,14 +30,14 @@ func NewService(botConfig config.BotConfig, embConfig *config.EmbeddingConfig, d
 		client:     openaiClient,
 	}
 
-	// Retrieve or initialize TagEmbeddings and update embConfig
-	tagEmbeddings, err := svc.getOrInitializeTagEmbeddings()
+	// Retrieve or initialize TagEmbeddings and update embConfig (unused, use prompt based instead)
+	/*tagEmbeddings, err := svc.getOrInitializeTagEmbeddings()
 	if err != nil {
 		log.Fatalf("Failed to initialize tag embeddings: %v", err)
 	}
-	embConfig.TagEmbeddings = tagEmbeddings
+	embConfig.TagEmbeddings = tagEmbeddings*/
 
-	// Now create bots with the updated embConfig
+	// Now create bots (with the updated embConfig if using emb based tagging)
 	svc.bots = createBots(botConfig, *embConfig, db, dao)
 
 	return svc
@@ -76,7 +76,7 @@ func (s *Service) RunBots() error {
 
 func createBots(botConfig config.BotConfig, embConfig config.EmbeddingConfig, database database.Database, dao repository.DAO) map[string]bot.Bot {
 	// Initialize bots
-	lineBot, err := bot.NewLineBot(botConfig, database, dao)
+	lineBot, err := bot.NewLineBot(botConfig, database, embConfig, dao)
 	if err != nil {
 		//log.Fatal("Failed to initialize LINE bot:", err)
 		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
@@ -88,12 +88,12 @@ func createBots(botConfig config.BotConfig, embConfig config.EmbeddingConfig, da
 		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
 	}
 
-	fbBot, err := bot.NewFBBot(botConfig, database, dao)
+	fbBot, err := bot.NewFBBot(botConfig, database, embConfig, dao)
 	if err != nil {
 		log.Fatalf("Failed to create Facebook bot: %v", err)
 	}
 
-	igBot, err := bot.NewIGBot(botConfig, database, dao)
+	igBot, err := bot.NewIGBot(botConfig, database, embConfig, dao)
 	if err != nil {
 		log.Fatalf("Failed to create Instagram bot: %v", err)
 	}
@@ -173,113 +173,46 @@ func (s *Service) GetUploadedDocuments() ([]string, error) {
 
 // This method checks if the tag_embeddings table has data. If not, it generates embeddings using OpenAI,
 // stores them in the database, and then loads them for use.
-func (s *Service) getOrInitializeTagEmbeddings() (map[string][]float64, error) {
-	// Attempt to retrieve tag embeddings from the database
-	tagEmbeddings, err := s.repository.RetrieveTagEmbeddings()
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve tag embeddings: %v", err)
-	}
-
-	// If tagEmbeddings is empty, initialize them
-	if len(tagEmbeddings) == 0 {
-		err = s.initializeAndStoreTagEmbeddings()
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize tag embeddings: %v", err)
-		}
-	}
-
-	return tagEmbeddings, nil
-}
-
-// Define the metatags and get embeddings from openai
-func (s *Service) initializeAndStoreTagEmbeddings() error {
-	tagDescriptions := map[string]string{
-		"Account & Billing":                "Information related to account management and billing issues.",
-		"Technical Troubleshooting":        "Assistance with troubleshooting technical issues and errors.",
-		"Product Information":              "Details about product specifications, pricing, and features.",
-		"User Guide, Instruction & How-To": "Step-by-step instructions and best practices.",
-		"Security & Privacy":               "Information on security measures and privacy policies.",
-		"Shipping & Returns":               "Details about shipping, delivery, and return policies.",
-		"Feedback & Support Contact":       "Channels for customer feedback, complaints, and support inquiries.",
-		"Warranty & Repairs":               "Information on warranty coverage and repair services.",
-		"Legal & Compliance":               "Legal terms, compliance, and policies.",
-	}
-
-	// Use DAO to store tag embeddings by passing tagDescriptions and the embedding function
-	err := s.repository.StoreTagEmbeddings(tagDescriptions, s.client.EmbedText)
-	if err != nil {
-		return fmt.Errorf("failed to initialize and store tag embeddings: %v", err)
-	}
-
-	return nil
-	//return tagEmbeddings, nil
-}
-
-// func (s *Service) ProcessIntentWithRAG(request *dialogflowpb.WebhookRequest) (gin.H, error) {
-// 	intent := request.QueryResult.Intent.DisplayName
-// 	var tags []string
-
-// 	// Match the intent to relevant tags
-// 	switch intent {
-// 	case "FAQ Intent":
-// 		tags = []string{"FAQs", "Product Information", "User Guide & How-To"}
-// 	case "Product Inquiry Intent":
-// 		tags = []string{"Product Information", "Account & Billing", "Order Status & Tracking"}
-// 	case "Troubleshooting Intent":
-// 		tags = []string{"Technical Troubleshooting", "Installation & Setup", "Security & Privacy"}
-// 	case "Installation Intent":
-// 		tags = []string{"Installation & Setup"}
-// 	// Add more cases as needed
-// 	default:
-// 		return gin.H{"fulfillmentText": "Intent not recognized for RAG context."}, nil
+// func (s *Service) getOrInitializeTagEmbeddings() (map[string][]float64, error) {
+// 	// Attempt to retrieve tag embeddings from the database
+// 	tagEmbeddings, err := s.repository.RetrieveTagEmbeddings()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to retrieve tag embeddings: %v", err)
 // 	}
 
-// 	// Retrieve document chunks based on tags
-// 	contextChunks, err := s.retrieveChunksByTags(tags)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error retrieving document chunks: %w", err)
-// 	}
-
-// 	// Join chunks to create a context for RAG
-// 	context := strings.Join(contextChunks, "\n")
-
-// 	// Formulate the prompt with context for OpenAI
-// 	userQuery := request.QueryResult.QueryText
-// 	prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, userQuery)
-
-// 	// Get response from OpenAI
-// 	ragResponse, err := s.client.GetResponse(prompt)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("error generating RAG response: %w", err)
-// 	}
-
-// 	// Send the RAG-generated response back to Dialogflow
-// 	return gin.H{"fulfillmentText": ragResponse}, nil
-// }
-
-// // GetDB returns the gorm.DB instance from the service's database
-// func (s *Service) GetDB() *gorm.DB {
-// 	return s.database.GetDB()
-// }
-
-// func (s *Service) ValidateUser(userID string, req models.User) (*string, error) {
-// 	_, err := s.repository.GetUser(userID)
-// 	if err != nil {
-// 		if err.Error() == "record not found" {
-// 			if err := s.repository.CreateUser(&req); err != nil {
-// 				return nil, fmt.Errorf("error creating user: %v", err)
-// 			}
-
-// 			token, err := token.GenerateToken(userID, "user")
-// 			if err != nil {
-// 				return nil, fmt.Errorf("error generating token: %v", err)
-// 			}
-
-// 			return &token, nil
+// 	// If tagEmbeddings is empty, initialize them
+// 	if len(tagEmbeddings) == 0 {
+// 		err = s.initializeAndStoreTagEmbeddings()
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to initialize tag embeddings: %v", err)
 // 		}
-// 		return nil, err
 // 	}
-// 	return nil, nil
+
+// 	return tagEmbeddings, nil
+// }
+
+// Define the metatags and get embeddings from openai (unused, for embedding based tagging)
+// func (s *Service) initializeAndStoreTagEmbeddings() error {
+// 	tagDescriptions := map[string]string{
+// 		"Account & Billing":                "Information related to account management and billing issues.",
+// 		"Technical Troubleshooting":        "Assistance with troubleshooting technical issues and errors.",
+// 		"Product Information":              "Details about product specifications, pricing, and features.",
+// 		"User Guide, Instruction & How-To": "Step-by-step instructions and best practices.",
+// 		"Security & Privacy":               "Information on security measures and privacy policies.",
+// 		"Shipping & Returns":               "Details about shipping, delivery, and return policies.",
+// 		"Feedback & Support Contact":       "Channels for customer feedback, complaints, and support inquiries.",
+// 		"Warranty & Repairs":               "Information on warranty coverage and repair services.",
+// 		"Legal & Compliance":               "Legal terms, compliance, and policies.",
+// 	}
+
+// 	// Use DAO to store tag embeddings by passing tagDescriptions and the embedding function
+// 	err := s.repository.StoreTagEmbeddings(tagDescriptions, s.client.EmbedText)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to initialize and store tag embeddings: %v", err)
+// 	}
+
+// 	return nil
+// 	//return tagEmbeddings, nil
 // }
 
 // func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {
@@ -337,41 +270,6 @@ func (s *Service) initializeAndStoreTagEmbeddings() error {
 // 		validRunes = append(validRunes, r)
 // 	}
 // 	return string(validRunes)
-// }
-
-// // GetAllDocumentEmbeddings retrieves document embeddings from the repository.
-// func (s *Service) GetAllDocumentEmbeddings() (map[string][]float64, map[string]string, error) {
-// 	return s.repository.FetchEmbeddings()
-// }
-
-// func (s *Service) StoreDocumentEmbedding(docID string, docText string, embedding []float64) error {
-// 	repo := NewRepository(s.database)
-
-// 	// Sanitize the document text
-// 	docText = sanitizeText(docText)
-
-// 	// Convert embedding to PostgreSQL-compatible array string
-// 	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
-
-// 	docEmbedding := models.DocumentEmbedding{
-// 		DocID:     docID,
-// 		DocText:   docText,
-// 		Embedding: embeddingStr,
-// 		CreatedAt: time.Now(),
-// 		UpdatedAt: time.Now(),
-// 	}
-
-// 	// Store the sanitized document embedding
-// 	err := repo.CreateDocumentEmbedding(&docEmbedding)
-// 	if err != nil {
-// 		return fmt.Errorf("error storing document embedding: %v", err)
-// 	}
-
-// 	return nil
-// }
-
-// func (s *Service) GetAllDocumentEmbeddings() (map[string][]float64, map[string]string, error) {
-// 	return repository.FetchEmbeddings(s.GetDB())
 // }
 
 // func (s *Service) ValidateUser(userIDStr string, req ValidateUserReq) (*string, error) {

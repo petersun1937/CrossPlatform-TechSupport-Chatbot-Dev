@@ -58,6 +58,7 @@ type OpenAIConfig struct {
 	OpenaiAPIKey   string
 	OpenaiEmbModel string
 	OpenaiMsgModel string
+	OpenaiTagModel string
 	MaxTokens      int
 }
 
@@ -134,6 +135,7 @@ func loadConfig() error {
 			OpenaiAPIKey:   os.Getenv("OPENAI_API_KEY"),
 			OpenaiEmbModel: os.Getenv("OPENAI_EMBED_MODEL"),
 			OpenaiMsgModel: os.Getenv("OPENAI_MSG_MODEL"),
+			OpenaiTagModel: os.Getenv("OPENAI_TAG_MODEL"),
 			MaxTokens:      getEnvInt("OPENAI_MAX_TOKEN_SIZE", 250),
 		},
 		EmbeddingConfig: EmbeddingConfig{

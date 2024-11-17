@@ -1,4 +1,4 @@
-package document
+package document_proc
 
 import (
 	"bytes"
@@ -62,6 +62,7 @@ func extractTextFromDocx(filePath string) (string, error) {
 	return cleanContent, nil
 }
 
+// cleanDocxText filters the unnecessary XML tags for cleaner text
 func cleanDocxText(rawText string) string {
 	// Regular expression to match XML tags
 	re := regexp.MustCompile("<[^>]*>")
@@ -75,7 +76,7 @@ func cleanDocxText(rawText string) string {
 	return cleanText
 }
 
-// extractTextFromPDF extracts text from a PDF file using pdfcpu
+// extractTextFromPDF extracts text from a PDF file using pdfcpu (discarded, use python instead)
 /*func extractTextFromPDF(filePath string) (string, error) {
 	// Initialize a new configuration for pdfcpu
 	conf := model.NewDefaultConfiguration()

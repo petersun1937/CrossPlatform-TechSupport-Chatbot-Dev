@@ -1,4 +1,4 @@
-package document
+package document_proc
 
 import (
 	"math"
@@ -43,5 +43,3 @@ func keywordMatchScore(query string, chunkText string) float64 {
 func weightedScore(cosineScore float64, keywordScore float64) float64 {
 	return (0.7 * cosineScore) + (0.3 * keywordScore) // Weight cosine higher but consider keyword match
 }
-
-
