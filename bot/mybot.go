@@ -6,6 +6,7 @@ import (
 	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
+	"crossplatform_chatbot/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,12 +15,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Document struct {
+	Filename string
+	DocID    string
+	ChunkID  string
+	DocText  string
+	//Embedding []float64 `gorm:"type:float8[]"`
+	Embedding string `gorm:"type:float8[]"` // Store as a string and ensure it's passed correctly
+}
+
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(sessionID, message string)
 	//sendResponse(identifier interface{}, response string) error
 	StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
 	ProcessDocument(Filename, sessionID, filePath string) error
+	V2ProcessDocument(Filename, sessionID, filePath string) ([]Document, []string, error)
 	StoreContext(sessionID string, c *gin.Context)
 	//SetWebhook(webhookURL string) error
 }
@@ -283,4 +294,58 @@ func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize
 	}
 	fmt.Println("Document embedding complete.")
 	return nil
+}
+
+func (b *generalBot) V2ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
+	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
+	docText, err := document.DownloadAndExtractText(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
+	}
+
+	documents, err := b.overlapChunks(filePath, filename, docText, sessionID, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Auto-tagging using OpenAI
+	tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
+	}
+
+	return documents, tags, nil
+}
+
+func (b *generalBot) overlapChunks(filePath, filename, docText, docID string, chunkSize, overlap int) ([]Document, error) {
+	// Chunk the document with overlap
+	chunks := document.OverlapChunk(docText, chunkSize, overlap)
+
+	//client := openai.NewClient()
+
+	documents := make([]Document, 0)
+	for i, chunk := range chunks {
+		// Get the embeddings for each chunk
+		embedding, err := b.openAIclient.EmbedText(chunk)
+		if err != nil {
+			return nil, fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+
+		// Create a unique chunk ID for storage in the database
+		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
+
+		docText = utils.SanitizeText(docText)
+		embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+		document := Document{
+			Filename:  filename,
+			DocID:     docID,
+			ChunkID:   chunkID,
+			DocText:   docText,
+			Embedding: embeddingStr,
+		}
+		documents = append(documents, document)
+	}
+
+	return documents, nil
 }

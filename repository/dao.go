@@ -22,6 +22,7 @@ type DAO interface {
 	RetrieveTagEmbeddings() (map[string][]float64, error)
 	StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc func(string) ([]float64, error)) error
 	GetDocumentChunksByTags(tags []string) ([]models.Document, error)
+	// CreateDocumentsAndMeta(uniqueDocID string, documents []bot.Document, tags []string) error
 }
 
 // dao struct implements the DAO interface.
@@ -309,4 +310,36 @@ func (g *GormDB) Updates(values interface{}) error {
 // func (d *dao) GetTask(id string) Task {
 // 	// remote api server
 // 	d.api.GetTak(id)
+// }
+
+// func (d *dao) CreateDocumentsAndMeta(uniqueDocID string, documents []bot.Document, tags []string) error {
+// 	documentModels := make([]*models.Document, 0)
+// 	for _, doc := range documents {
+// 		model := models.Document{
+// 			Filename:  doc.Filename,
+// 			DocID:     doc.DocID,
+// 			ChunkID:   doc.ChunkID,
+// 			DocText:   doc.DocText,
+// 			Embedding: doc.Embedding,
+// 		}
+// 		documentModels = append(documentModels, &model)
+// 	}
+// 	metadata := models.DocumentMetadata{
+// 		DocID: uniqueDocID,
+// 		Tags:  tags,
+// 	}
+
+// 	return d.db.GetDB().Transaction(func(tx *gorm.DB) error {
+// 		// batch insert Documents
+// 		if err := tx.Create(documentModels).Error; err != nil {
+// 			return err
+// 		}
+
+// 		// insert DocumentMetadata
+// 		if err := tx.Create(&metadata).Error; err != nil {
+// 			return err
+// 		}
+
+// 		return nil
+// 	})
 // }

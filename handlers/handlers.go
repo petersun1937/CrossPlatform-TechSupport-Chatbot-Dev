@@ -115,3 +115,36 @@ func (h *Handler) HandlerGetDocuments(c *gin.Context) {
 	// Return only the filenames as a JSON array
 	c.JSON(http.StatusOK, gin.H{"filenames": filenames})
 }
+
+func (h *Handler) V2HandlerDocumentUpload(c *gin.Context) {
+
+	// Parse the file from the form-data
+	file, err := c.FormFile("document")
+	if err != nil {
+		fmt.Printf("Error receiving file: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file upload"})
+		return
+	}
+
+	// Retrieve session ID from the form-data
+	sessionID := c.PostForm("sessionID")
+	if sessionID == "" {
+		fmt.Println("Error: Missing sessionID")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Session ID is required"})
+		return
+	}
+
+	// Save the uploaded file to a temporary location
+	filePath := fmt.Sprintf("/tmp/%s", file.Filename)
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		fmt.Printf("Error saving file: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error saving the file"})
+		return
+	}
+
+	if err := h.Service.HandleDocumentUpload(file.Filename, filePath); err != nil {
+		fmt.Printf("Error processing document: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+}
