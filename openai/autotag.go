@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -67,12 +66,12 @@ func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 }
 
 // Generate tags using embeddings
-func (c *Client) AutoTagWithEmbeddings(docEmbedding []float64, tagEmbeddings map[string][]float64) []string {
-	var tags []string
-	for tag, embedding := range tagEmbeddings {
-		if utils.CosineSimilarity(docEmbedding, embedding) > 0.7 {
-			tags = append(tags, tag)
-		}
-	}
-	return tags
-}
+// func (c *Client) AutoTagWithEmbeddings(docEmbedding []float64, tagEmbeddings map[string][]float64) []string {
+// 	var tags []string
+// 	for tag, embedding := range tagEmbeddings {
+// 		if utils.CosineSimilarity(docEmbedding, embedding) > 0.7 {
+// 			tags = append(tags, tag)
+// 		}
+// 	}
+// 	return tags
+// }

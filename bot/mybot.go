@@ -30,7 +30,7 @@ type generalBot struct {
 	//ctx context.Context
 	// conf         config.BotConfig
 	//embConfig    config.EmbeddingConfig
-	openAIclient *openai.Client
+	//openAIclient *openai.Client
 	//config map[string]string
 }
 
@@ -207,7 +207,7 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return fmt.Errorf("invalid identifier for frontend or platform")
 }
 
-func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error {
+func (b *generalBot) ProcessDocument(filename, sessionID, filePath string) error {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
 	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
@@ -217,7 +217,7 @@ func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error
 	// Store document chunks and their embeddings
 	//chunkSize := 300
 	//minChunkSize := 50
-	err = b.StoreDocumentChunks(Filename, sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+	err = b.StoreDocumentChunks(filename, filename+"_"+sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
 	if err != nil {
 		return fmt.Errorf("error storing document chunks: %w", err)
 	}
@@ -246,7 +246,7 @@ func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error
 	// fmt.Println("Auto-tagged with tags:", tags)
 
 	// Auto-tagging using OpenAI
-	tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
+	tags, err := b.BaseBot.openAIclient.AutoTagWithOpenAI(docText)
 	if err != nil {
 		return fmt.Errorf("error auto-tagging document: %w", err)
 	}
@@ -259,7 +259,7 @@ func (b *generalBot) ProcessDocument(Filename, sessionID, filePath string) error
 	return nil
 }
 
-func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize, overlap int) error {
+func (b *generalBot) StoreDocumentChunks(filename, docID, text string, chunkSize, overlap int) error {
 	// Chunk the document with overlap
 	chunks := document.OverlapChunk(text, chunkSize, overlap)
 
@@ -267,15 +267,15 @@ func (b *generalBot) StoreDocumentChunks(Filename, docID, text string, chunkSize
 
 	for i, chunk := range chunks {
 		// Get the embeddings for each chunk
-		embedding, err := b.openAIclient.EmbedText(chunk)
+		embedding, err := b.BaseBot.openAIclient.EmbedText(chunk)
 		if err != nil {
 			return fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
 
 		// Create a unique chunk ID for storage in the database
-		chunkID := fmt.Sprintf("%s_chunk_%d_%s", Filename, i, docID)
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
 		// Store each chunk and its embedding
-		err = b.BaseBot.dao.CreateDocumentEmbedding(Filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
+		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
 		if err != nil {
 			return fmt.Errorf("error storing chunks: %v", err)
 		}

@@ -4,7 +4,6 @@ import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
-	"crossplatform_chatbot/utils"
 	"fmt"
 )
 
@@ -14,7 +13,7 @@ func GetRelevantTags(queryEmbedding []float64, tagEmbeddings map[string][]float6
 	var relevantTags []string
 
 	for tag, embedding := range tagEmbeddings {
-		cosineScore := utils.CosineSimilarity(queryEmbedding, embedding)
+		cosineScore := cosineSimilarity(queryEmbedding, embedding)
 		keywordScore := keywordMatchScore(tag, tag) // Simple keyword match for tags
 		combinedScore := weightedScore(cosineScore, keywordScore)
 
@@ -45,17 +44,17 @@ func StoreDocumentChunks(Filename, sessionID, text string, embConfig config.Embe
 }
 
 // AutoTagDocumentEmbeddings
-func AutoTagDocumentEmbeddings(sessionID string, client *openai.Client, dao repository.DAO, tagEmbeddings map[string][]float64) ([]string, error) {
-	chunkEmbeddings, err := dao.GetChunkEmbeddings(sessionID)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving chunk embeddings: %w", err)
-	}
+// func AutoTagDocumentEmbeddings(sessionID string, client *openai.Client, dao repository.DAO, tagEmbeddings map[string][]float64) ([]string, error) {
+// 	chunkEmbeddings, err := dao.GetChunkEmbeddings(sessionID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error retrieving chunk embeddings: %w", err)
+// 	}
 
-	combinedEmbedding, err := utils.AverageEmbeddings(chunkEmbeddings)
-	if err != nil {
-		return nil, fmt.Errorf("error combining chunk embeddings: %w", err)
-	}
+// 	combinedEmbedding, err := utils.AverageEmbeddings(chunkEmbeddings)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error combining chunk embeddings: %w", err)
+// 	}
 
-	tags := client.AutoTagWithEmbeddings(combinedEmbedding, tagEmbeddings)
-	return tags, nil
-}
+// 	tags := client.AutoTagWithEmbeddings(combinedEmbedding, tagEmbeddings)
+// 	return tags, nil
+// }

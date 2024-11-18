@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -131,25 +130,4 @@ func AverageEmbeddings(embeddings [][]float64) ([]float64, error) {
 	}
 
 	return combinedEmbedding, nil
-}
-
-// Compute similarity score
-func CosineSimilarity(vec1, vec2 []float64) float64 {
-	/*var dotProduct, normA, normB float64
-	for i := 0; i < len(vec1); i++ {
-		dotProduct += vec1[i] * vec2[i] // Calculate the dot product of vec1 and vec2
-		normA += vec1[i] * vec1[i]      // Calculate the sum of squares of vec1
-		normB += vec2[i] * vec2[i]      // Calculate the sum of squares of vec2
-	}
-	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB)) // Return the cosine similarity*/
-	var dotProduct, magnitudeVec1, magnitudeVec2 float64
-	for i := range vec1 {
-		dotProduct += vec1[i] * vec2[i]
-		magnitudeVec1 += vec1[i] * vec1[i]
-		magnitudeVec2 += vec2[i] * vec2[i]
-	}
-	if magnitudeVec1 == 0 || magnitudeVec2 == 0 {
-		return 0
-	}
-	return dotProduct / (math.Sqrt(magnitudeVec1) * math.Sqrt(magnitudeVec2))
 }

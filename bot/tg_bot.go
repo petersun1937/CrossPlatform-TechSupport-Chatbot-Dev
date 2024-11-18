@@ -35,8 +35,8 @@ type tgBot struct {
 	//embConfig config.EmbeddingConfig
 	// ctx          context.Context
 	// token        string
-	botApi       *tgbotapi.BotAPI
-	openAIclient *openai.Client
+	botApi *tgbotapi.BotAPI
+	//openAIclient *openai.Client
 	//service *service.Service
 }
 
@@ -445,7 +445,8 @@ func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
 	// Store document chunks and their embeddings
 	chunkSize := 200 // Set chunk size as needed (e.g., 200 words)
 	minchunkSize := 50
-	err = b.StoreDocumentChunks(update.Message.Document.FileName, fileID, docText, chunkSize, minchunkSize)
+	filename := update.Message.Document.FileName
+	err = b.StoreDocumentChunks(filename, filename+"_"+fileID, docText, chunkSize, minchunkSize)
 	if err != nil {
 		b.sendTelegramMessage(update.Message.Chat.ID, "Error storing document chunks: "+err.Error())
 		return
@@ -460,12 +461,12 @@ func (b *tgBot) StoreDocumentChunks(filename, docID, text string, chunkSize, min
 	chunks := document.ChunkSmartly(text, chunkSize, minchunkSize)
 
 	for i, chunk := range chunks {
-		embedding, err := b.openAIclient.EmbedText(chunk)
+		embedding, err := b.BaseBot.openAIclient.EmbedText(chunk)
 		if err != nil {
 			return fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
 		//chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
+		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
 		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
 		if err != nil {
 			return fmt.Errorf("error storing chunks: %v", err)

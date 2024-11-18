@@ -101,10 +101,10 @@ func (d *dao) FetchEmbeddings() (map[string][]float64, map[string]string, error)
 	for _, embedding := range embeddings {
 		floatSlice, err := utils.PostgresArrayToFloat64Slice(embedding.Embedding)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error parsing embedding for docID %s: %v", embedding.DocID, err)
+			return nil, nil, fmt.Errorf("error parsing embedding for docID %s: %v", embedding.ChunkID, err)
 		}
-		documentEmbeddings[embedding.DocID] = floatSlice
-		docText[embedding.DocID] = embedding.DocText
+		documentEmbeddings[embedding.ChunkID] = floatSlice
+		docText[embedding.ChunkID] = embedding.DocText
 	}
 
 	return documentEmbeddings, docText, nil

@@ -82,6 +82,7 @@ func (h *Handler) HandlerDocumentUpload(c *gin.Context) {
 	uniqueDocID := uuid.New().String()
 
 	// Call bot to process the document
+	//h.Service.handleDocumentUpload(filePath) //In service
 	err = b.ProcessDocument(file.Filename, uniqueDocID, filePath)
 	if err != nil {
 		fmt.Printf("Error processing document: %v", err)

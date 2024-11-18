@@ -2,7 +2,6 @@ package document_proc
 
 import (
 	"crossplatform_chatbot/openai"
-	"crossplatform_chatbot/utils"
 	"fmt"
 	"regexp"
 	"sort"
@@ -29,7 +28,7 @@ func RetrieveTopNChunks(query string, documentEmbeddings map[string][]float64, t
 	// Calculate similarity for each document chunk
 	for chunkID, embedding := range documentEmbeddings {
 		//score := cosineSimilarity(queryEmbedding, embedding)
-		cosineScore := utils.CosineSimilarity(queryEmbedding, embedding)
+		cosineScore := cosineSimilarity(queryEmbedding, embedding)
 		keywordScore := keywordMatchScore(query, docIDToText[chunkID])
 		combinedScore := weightedScore(cosineScore, keywordScore)
 
