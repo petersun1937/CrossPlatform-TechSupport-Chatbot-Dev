@@ -8,6 +8,7 @@ import (
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
+	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,9 +24,16 @@ import (
 
 type TgBot interface {
 	Run() error
-	setWebhook(webhookURL string) error
-	HandleTelegramUpdate(update tgbotapi.Update)
-	StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error
+	//SetWebhook(webhookURL string) error
+	SendTelegramMessage(chatID int64, messageText string) error
+	//HandleTelegramUpdate(update tgbotapi.Update)
+	HandleTgMessage(message *tgbotapi.Message)
+	//StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error
+	//V2ProcessDocument(filename, fileID, filePath string) ([]Document, []string, error)
+	//V2StoreDocumentChunks(filename, docID, docText string, chunkSize, overlap int) ([]Document, error)
+	ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error)
+	StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error)
+	GetDocFile(update tgbotapi.Update) (string, string, string, error)
 	//sendResponse(identifier interface{}, response string) error
 }
 
@@ -135,7 +143,7 @@ func (b *tgBot) Run() error {
 
 	// // Use go routine to continuously process received updates from the updates channel
 	// go b.receiveUpdates(b.ctx, updates)
-	return b.setWebhook(b.conf.TelegramWebhookURL)
+	return b.setWebhook(b.BaseBot.conf.TelegramWebhookURL)
 }
 
 // Receives updates from Telegram API and handles them (for long polling, not needed with Webhook)
@@ -156,24 +164,24 @@ func (b *tgBot) Run() error {
 // }
 
 // HandleTelegramUpdate processes incoming updates from Telegram
-func (b *tgBot) HandleTelegramUpdate(update tgbotapi.Update) {
-	// Check if the update contains a message
-	if update.Message != nil {
-		if update.Message.Document != nil {
-			// If the message contains a document, handle the document upload
-			b.HandleDocumentUpload(update)
-		} else {
-			// Otherwise, handle regular text messages
-			b.handleTgMessage(update.Message)
-		}
-	} /*else if update.CallbackQuery != nil {
-		// Handle button interactions (callback queries)
-		b.handleButton(update.CallbackQuery)
-	}*/
-}
+// func (b *tgBot) HandleTelegramUpdate(update tgbotapi.Update) {
+// 	// Check if the update contains a message
+// 	if update.Message != nil {
+// 		if update.Message.Document != nil {
+// 			// If the message contains a document, handle the document upload
+// 			b.HandleDocumentUpload(update)
+// 		} else {
+// 			// Otherwise, handle regular text messages
+// 			b.HandleTgMessage(update.Message)
+// 		}
+// 	} /*else if update.CallbackQuery != nil {
+// 		// Handle button interactions (callback queries)
+// 		b.handleButton(update.CallbackQuery)
+// 	}*/
+// }
 
 // Handle Telegram messages
-func (b *tgBot) handleTgMessage(message *tgbotapi.Message) {
+func (b *tgBot) HandleTgMessage(message *tgbotapi.Message) {
 	user := message.From
 	if user == nil {
 		return
@@ -359,7 +367,7 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 	}*/
 
 	if response != "" {
-		b.sendTelegramMessage(chatID, response)
+		b.SendTelegramMessage(chatID, response)
 	}
 }
 
@@ -381,14 +389,14 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 // Check identifier and send message via Telegram
 func (b *tgBot) sendResponse(identifier interface{}, response string) error {
 	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
-		return b.sendTelegramMessage(message.Chat.ID, response)
+		return b.SendTelegramMessage(message.Chat.ID, response)
 	} else {
 		return fmt.Errorf("invalid identifier for Telegram platform")
 	}
 }
 
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
-func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
+func (b *tgBot) SendTelegramMessage(chatID int64, messageText string) error {
 	// Use the Telegram API URL from the config
 	url := b.conf.TelegramAPIURL + b.conf.TelegramBotToken + "/sendMessage"
 	//conf := config.GetConfig()
@@ -426,55 +434,88 @@ func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
 	return nil
 }
 
-func (b *tgBot) HandleDocumentUpload(update tgbotapi.Update) {
-	// Get the file ID and file URL from the uploaded document
+// GetDocFile retrieves relevant file information of the document
+func (b *tgBot) GetDocFile(update tgbotapi.Update) (string, string, string, error) {
+
 	fileID := update.Message.Document.FileID
+	filename := update.Message.Document.FileName
 	fileURL, err := b.botApi.GetFileDirectURL(fileID)
 	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error getting file: "+err.Error())
-		return
+		//b.sendTelegramMessage(update.Message.Chat.ID, "Error getting file: "+err.Error())
+		return "", "", "", err
 	}
-
-	// Download and extract text from the document
-	docText, err := document.DownloadAndExtractText(fileURL)
-	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error processing document: "+err.Error())
-		return
-	}
-
-	// Store document chunks and their embeddings
-	chunkSize := 200 // Set chunk size as needed (e.g., 200 words)
-	minchunkSize := 50
-	filename := update.Message.Document.FileName
-	err = b.StoreDocumentChunks(filename, filename+"_"+fileID, docText, chunkSize, minchunkSize)
-	if err != nil {
-		b.sendTelegramMessage(update.Message.Chat.ID, "Error storing document chunks: "+err.Error())
-		return
-	}
-
-	b.sendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
+	return fileID, fileURL, filename, nil
 }
 
-func (b *tgBot) StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error {
-	//chunks := ChunkDocument(text, chunkSize)
-	//chunks := utils.ChunkDocumentBySentence(text, chunkSize)
-	chunks := document.ChunkSmartly(text, chunkSize, minchunkSize)
+func (b *tgBot) ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
+	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
+	docText, err := document.DownloadAndExtractText(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
+	}
+
+	chunks := document.OverlapChunk(docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+
+	documents := make([]Document, 0)
+
+	tagList := []string{} // Initialize the tag list
 
 	for i, chunk := range chunks {
-		embedding, err := b.BaseBot.openAIclient.EmbedText(chunk)
+
+		document, err := b.StoreDocumentChunks(filename, filename+"_"+sessionID, chunk, i)
 		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+			return nil, nil, err
 		}
-		//chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
+
+		documents = append(documents, document)
+
+		// Auto-tagging using OpenAI
+
+		tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
 		if err != nil {
-			return fmt.Errorf("error storing chunks: %v", err)
+			return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
 		}
-		//b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+
+		// Append tags to the tag list
+		tagList = append(tagList, tags...)
 	}
-	fmt.Println("Document embedding complete.")
-	return nil
+
+	// Remove duplicates from the tag list
+	uniqueTags := utils.RemoveDuplicates(tagList)
+
+	return documents, uniqueTags, nil
+}
+
+func (b *tgBot) StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error) {
+	// Chunk the document with overlap
+
+	//client := openai.NewClient()
+
+	//for i, chunk := range chunks {
+	// Get the embeddings for each chunk
+	embedding, err := b.openAIclient.EmbedText(chunkText)
+	if err != nil {
+		return Document{}, fmt.Errorf("error embedding chunk %d: %v", chunkid, err)
+	}
+
+	// Create a unique chunk ID for storage in the database
+	chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, chunkid, docID)
+
+	chunkText = utils.SanitizeText(chunkText)
+	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+	document := Document{
+		Filename: filename,
+		DocID:    docID,
+		ChunkID:  chunkID,
+		//DocText:   docText,
+		DocText:   chunkText,
+		Embedding: embeddingStr,
+	}
+
+	//}
+
+	return document, nil
 }
 
 /*
@@ -547,5 +588,60 @@ func (b *tgBot) sendTGMenu(chatID int64) error {
 		return fmt.Errorf("error sending Telegram menu: %w", err)
 	}
 	return nil
+}
+*/
+/*
+func (b *tgBot) V2ProcessDocument(filename, fileID, filePath string) ([]Document, []string, error) {
+	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
+	docText, err := document.DownloadAndExtractText(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
+	}
+
+	documents, err := b.V2StoreDocumentChunks(filename, filename+"_"+fileID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Auto-tagging using OpenAI
+	tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
+	}
+
+	return documents, tags, nil
+}
+
+func (b *tgBot) V2StoreDocumentChunks(filename, docID, docText string, chunkSize, overlap int) ([]Document, error) {
+	// Chunk the document with overlap
+	chunks := document.OverlapChunk(docText, chunkSize, overlap)
+
+	//client := openai.NewClient()
+
+	documents := make([]Document, 0)
+	for i, chunk := range chunks {
+		// Get the embeddings for each chunk
+		embedding, err := b.openAIclient.EmbedText(chunk)
+		if err != nil {
+			return nil, fmt.Errorf("error embedding chunk %d: %v", i, err)
+		}
+
+		// Create a unique chunk ID for storage in the database
+		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
+
+		docText = utils.SanitizeText(docText)
+		embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+		document := Document{
+			Filename:  filename,
+			DocID:     docID,
+			ChunkID:   chunkID,
+			DocText:   chunk,
+			Embedding: embeddingStr,
+		}
+		documents = append(documents, document)
+	}
+
+	return documents, nil
 }
 */

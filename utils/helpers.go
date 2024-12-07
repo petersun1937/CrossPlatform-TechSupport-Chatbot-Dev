@@ -58,6 +58,21 @@ func SanitizeText(input string) string {
 	return string(validRunes)
 }
 
+// Helper function to remove duplicates from a list of tags
+func RemoveDuplicates(tags []string) []string {
+	uniqueTags := make(map[string]bool)
+	var result []string
+
+	for _, tag := range tags {
+		if !uniqueTags[tag] { // Check if the tag is unique
+			uniqueTags[tag] = true
+			result = append(result, tag)
+		}
+	}
+
+	return result
+}
+
 // Convert float64 slice to PostgreSQL float8[] string format
 func Float64SliceToPostgresArray(embedding []float64) string {
 	var result strings.Builder

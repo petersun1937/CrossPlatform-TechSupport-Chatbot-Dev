@@ -164,20 +164,20 @@ func (b *BaseBot) fetchDocumentContext(intent string, userMessage string) (strin
 }
 
 // mapIntent maps user input to predefined intents.
-func mapIntent(message string) string {
-	switch {
-	case strings.Contains(strings.ToLower(message), "faq"):
-		return "FAQ Intent"
-	case strings.Contains(strings.ToLower(message), "product"):
-		return "Product Inquiry Intent"
-	case strings.Contains(strings.ToLower(message), "troubleshoot"):
-		return "Troubleshooting Intent"
-	case strings.Contains(strings.ToLower(message), "install"):
-		return "Installation Intent"
-	default:
-		return "Default Intent"
-	}
-}
+// func mapIntent(message string) string {
+// 	switch {
+// 	case strings.Contains(strings.ToLower(message), "faq"):
+// 		return "FAQ Intent"
+// 	case strings.Contains(strings.ToLower(message), "product"):
+// 		return "Product Inquiry Intent"
+// 	case strings.Contains(strings.ToLower(message), "troubleshoot"):
+// 		return "Troubleshooting Intent"
+// 	case strings.Contains(strings.ToLower(message), "install"):
+// 		return "Installation Intent"
+// 	default:
+// 		return "Default Intent"
+// 	}
+// }
 
 // Defines tags associated with an intent.
 func mapTags(intent string) []string {

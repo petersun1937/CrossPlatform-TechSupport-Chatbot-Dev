@@ -6,6 +6,7 @@ import (
 	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
+	"crossplatform_chatbot/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,12 +15,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Document struct {
+	Filename string
+	DocID    string
+	ChunkID  string
+	DocText  string
+	//Embedding []float64 `gorm:"type:float8[]"`
+	Embedding string `gorm:"type:float8[]"` // Store as a string and ensure it's passed correctly
+}
+
 type GeneralBot interface {
 	Run() error
 	HandleGeneralMessage(sessionID, message string)
 	//sendResponse(identifier interface{}, response string) error
-	StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
-	ProcessDocument(Filename, sessionID, filePath string) error
+	//StoreDocumentChunks(Filename, docID, text string, chunkSize, minchunkSize int) error
+	//ProcessDocument(Filename, sessionID, filePath string) error
+	//V2ProcessDocument(Filename, sessionID, filePath string) ([]Document, []string, error)
+	//V2StoreDocumentChunks(filename, docID, docText string, chunkSize, overlap int) ([]Document, error)
+	ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error)
+	StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error)
 	StoreContext(sessionID string, c *gin.Context)
 	//SetWebhook(webhookURL string) error
 }
@@ -181,7 +195,6 @@ func (b *generalBot) sendFrontendMessage(c *gin.Context, message string) error {
 	return nil
 }
 
-// TODO
 var sessionContextMap = make(map[string]*gin.Context)
 
 // StoreContext stores the context in sessionContextMap using the session ID
@@ -207,80 +220,128 @@ func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectInten
 	return fmt.Errorf("invalid identifier for frontend or platform")
 }
 
-func (b *generalBot) ProcessDocument(filename, sessionID, filePath string) error {
+func (b *generalBot) ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
 	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
-		return fmt.Errorf("error processing document: %w", err)
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
 	}
 
-	// Store document chunks and their embeddings
-	//chunkSize := 300
-	//minChunkSize := 50
-	err = b.StoreDocumentChunks(filename, filename+"_"+sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
-	if err != nil {
-		return fmt.Errorf("error storing document chunks: %w", err)
+	chunks := document.OverlapChunk(docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+
+	documents := make([]Document, 0)
+
+	tagList := []string{} // Initialize the tag list
+
+	for i, chunk := range chunks {
+
+		document, err := b.StoreDocumentChunks(filename, filename+"_"+sessionID, chunk, i)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		documents = append(documents, document)
+
+		// Auto-tagging using OpenAI
+
+		tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
+		}
+
+		// Append tags to the tag list
+		tagList = append(tagList, tags...)
 	}
 
-	// Combine chunk embeddings and auto-tag using embeddings
-	// tags, err := document.AutoTagDocumentEmbeddings(sessionID, b.openAIclient, b.BaseBot.dao, b.embConfig.TagEmbeddings)
-	// if err != nil {
-	// 	return fmt.Errorf("error auto-tagging document: %w", err)
-	// }
+	// Remove duplicates from the tag list
+	uniqueTags := utils.RemoveDuplicates(tagList)
 
-	//TODO
-	// Retrieve all chunk embeddings for the document
-	// chunkEmbeddings, err := b.BaseBot.dao.GetChunkEmbeddings(sessionID)
-	// if err != nil {
-	// 	return fmt.Errorf("error retrieving chunk embeddings: %w", err)
-	// }
-
-	// // Combine chunk embeddings into a single document embedding
-	// combinedEmbedding, err := utils.AverageEmbeddings(chunkEmbeddings)
-	// if err != nil {
-	// 	return fmt.Errorf("error combining chunk embeddings: %w", err)
-	// }
-
-	// // Retrieve tags based on similarity between document embedding and tag embeddings
-	// tags := document.GetRelevantTags(combinedEmbedding, b.embConfig.TagEmbeddings, 0.7)
-	// fmt.Println("Auto-tagged with tags:", tags)
-
-	// Auto-tagging using OpenAI
-	tags, err := b.BaseBot.openAIclient.AutoTagWithOpenAI(docText)
-	if err != nil {
-		return fmt.Errorf("error auto-tagging document: %w", err)
-	}
-
-	// Save tags in document metadata
-	if err := b.BaseBot.dao.SaveDocumentMetadata(sessionID, tags); err != nil {
-		return fmt.Errorf("error saving document metadata: %w", err)
-	}
-
-	return nil
+	return documents, uniqueTags, nil
 }
 
-func (b *generalBot) StoreDocumentChunks(filename, docID, text string, chunkSize, overlap int) error {
+func (b *generalBot) StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error) {
 	// Chunk the document with overlap
-	chunks := document.OverlapChunk(text, chunkSize, overlap)
 
 	//client := openai.NewClient()
 
+	//for i, chunk := range chunks {
+	// Get the embeddings for each chunk
+	embedding, err := b.openAIclient.EmbedText(chunkText)
+	if err != nil {
+		return Document{}, fmt.Errorf("error embedding chunk %d: %v", chunkid, err)
+	}
+
+	// Create a unique chunk ID for storage in the database
+	chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, chunkid, docID)
+
+	chunkText = utils.SanitizeText(chunkText)
+	embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+	document := Document{
+		Filename: filename,
+		DocID:    docID,
+		ChunkID:  chunkID,
+		//DocText:   docText,
+		DocText:   chunkText,
+		Embedding: embeddingStr,
+	}
+
+	//}
+
+	return document, nil
+}
+
+func (b *generalBot) V2ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
+	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
+	docText, err := document.DownloadAndExtractText(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
+	}
+
+	documents, err := b.V2StoreDocumentChunks(filename, filename+"_"+sessionID, docText, b.embConfig.ChunkSize, b.embConfig.MinChunkSize)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Auto-tagging using OpenAI
+	tags, err := b.openAIclient.AutoTagWithOpenAI(docText)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
+	}
+
+	return documents, tags, nil
+}
+
+func (b *generalBot) V2StoreDocumentChunks(filename, docID, docText string, chunkSize, overlap int) ([]Document, error) {
+	// Chunk the document with overlap
+	chunks := document.OverlapChunk(docText, chunkSize, overlap)
+
+	//client := openai.NewClient()
+
+	documents := make([]Document, 0)
 	for i, chunk := range chunks {
 		// Get the embeddings for each chunk
-		embedding, err := b.BaseBot.openAIclient.EmbedText(chunk)
+		embedding, err := b.openAIclient.EmbedText(chunk)
 		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+			return nil, fmt.Errorf("error embedding chunk %d: %v", i, err)
 		}
 
 		// Create a unique chunk ID for storage in the database
-		chunkID := fmt.Sprintf("%s_chunk_%d", docID, i)
-		// Store each chunk and its embedding
-		err = b.BaseBot.dao.CreateDocumentEmbedding(filename, docID, chunkID, chunk, embedding) // Store each chunk with its embedding
-		if err != nil {
-			return fmt.Errorf("error storing chunks: %v", err)
+		chunkID := fmt.Sprintf("%s_chunk_%d_%s", filename, i, docID)
+
+		docText = utils.SanitizeText(docText)
+		embeddingStr := utils.Float64SliceToPostgresArray(embedding)
+
+		document := Document{
+			Filename: filename,
+			DocID:    docID,
+			ChunkID:  chunkID,
+			//DocText:   docText,
+			DocText:   chunk,
+			Embedding: embeddingStr,
 		}
-		//b.Service.StoreDocumentEmbedding(chunkID, chunk, embedding)
+		documents = append(documents, document)
 	}
-	fmt.Println("Document embedding complete.")
-	return nil
+
+	return documents, nil
 }

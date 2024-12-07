@@ -17,7 +17,7 @@ type DAO interface {
 	CreateDocumentEmbedding(filename, docID, chunkID, docText string, embedding []float64) error
 	FetchEmbeddings() (map[string][]float64, map[string]string, error)
 	GetAllDocuments() ([]models.Document, error)
-	SaveDocumentMetadata(docID string, tags []string) error
+	//SaveDocumentMetadata(docID string, tags []string) error
 	GetChunkEmbeddings(docID string) ([][]float64, error)
 	RetrieveTagEmbeddings() (map[string][]float64, error)
 	StoreTagEmbeddings(tagDescriptions map[string]string, embedFunc func(string) ([]float64, error)) error
@@ -141,14 +141,14 @@ func (d *dao) GetChunkEmbeddings(docID string) ([][]float64, error) {
 }
 
 // Saves the metadata for the documents to database.
-func (d *dao) SaveDocumentMetadata(docID string, tags []string) error {
-	metadata := models.DocumentMetadata{
-		DocID:     docID,
-		Tags:      tags,
-		CreatedAt: time.Now(),
-	}
-	return d.db.GetDB().Create(&metadata).Error
-}
+// func (d *dao) SaveDocumentMetadata(docID string, tags []string) error {
+// 	metadata := models.DocumentMetadata{
+// 		DocID:     docID,
+// 		Tags:      tags,
+// 		CreatedAt: time.Now(),
+// 	}
+// 	return d.db.GetDB().Create(&metadata).Error
+// }
 
 // RetrieveTagEmbeddings gets embeddings for tags and stores from the database
 func (d *dao) RetrieveTagEmbeddings() (map[string][]float64, error) {

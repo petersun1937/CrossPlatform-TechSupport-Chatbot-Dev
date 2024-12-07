@@ -2,7 +2,7 @@
 *.log
 
 # private key
-crossplatform_chatbot.private
+*.private
 
 # Ignore test documents
 *.pdf
@@ -13,3 +13,6 @@ crossplatform_chatbot.private
 
 # Ignore env files
 .env
+
+# Ignore pub files (not needed for now)
+*.pub

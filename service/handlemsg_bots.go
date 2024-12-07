@@ -4,6 +4,7 @@ import (
 	"crossplatform_chatbot/bot"
 	"crossplatform_chatbot/models"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -40,14 +41,38 @@ func (s *Service) HandleLine(req *http.Request) error {
 	return nil
 }
 
-// HandleTelegram processes incoming updates from Telegram.
+// HandleTelegram processes incoming updates from Telegram, including documents and messages.
 func (s *Service) HandleTelegram(update tgbotapi.Update) error {
 	tgBot, exists := s.GetBot("telegram").(bot.TgBot)
 	if !exists {
 		return errors.New(" Telegram bot not found")
 	}
 
-	tgBot.HandleTelegramUpdate(update)
+	//tgBot.HandleTelegramUpdate(update)
+
+	if update.Message != nil {
+		if update.Message.Document != nil {
+
+			// get filename, fileURL, fileID
+			fileID, fileURL, filename, err := tgBot.GetDocFile(update)
+			if err != nil {
+				return fmt.Errorf("error getting file:  %w", err)
+			}
+
+			// If the message contains a document, handle the document upload
+			err = s.HandleTGDocumentUpload(filename, fileID, fileURL)
+			if err != nil {
+				tgBot.SendTelegramMessage(update.Message.Chat.ID, "Error handling document: "+err.Error())
+				return fmt.Errorf("error handling the document:  %w", err)
+			}
+
+			tgBot.SendTelegramMessage(update.Message.Chat.ID, "Document processed and stored in chunks for future queries.")
+		} else {
+			// Otherwise, handle regular text messages
+			tgBot.HandleTgMessage(update.Message)
+		}
+	}
+
 	return nil
 }
 

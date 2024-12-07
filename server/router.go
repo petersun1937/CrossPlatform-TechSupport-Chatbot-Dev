@@ -47,7 +47,7 @@ func (s *Server) InitRoutes(handler *handlers.Handler) {
 
 	//s.router.POST("/dialogflow-webhook", handler.HandleDialogflowWebhook)
 
-	s.router.POST("/api/document/upload", handler.HandlerDocumentUpload)
+	s.router.POST("/api/document/upload", handler.V2HandlerDocumentUpload)
 	s.router.GET("/api/document/list", handler.HandlerGetDocuments)
 	s.router.OPTIONS("/api/document/list", func(c *gin.Context) {
 		c.Status(http.StatusNoContent)

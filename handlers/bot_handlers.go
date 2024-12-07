@@ -3,6 +3,7 @@ package handlers
 import (
 	"crossplatform_chatbot/bot"
 	config "crossplatform_chatbot/configs"
+	"crossplatform_chatbot/models"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -108,6 +109,34 @@ func (h *Handler) VerifyMessengerWebhook(c *gin.Context) {
 	} else {
 		c.String(http.StatusForbidden, "Invalid verification token")
 	}
+}
+
+// HandlerGeneralBot handles incoming POST requests from the frontend
+func (h *Handler) HandlerGeneralBot(c *gin.Context) {
+	var req models.GeneralRequest
+
+	// Parse the incoming request from the frontend and bind to the req struct
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("failed to bind request: %s\n", err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// // Store the context (to use later for sending the response) TODO to bot?
+	b := h.Service.GetBot("general").(bot.GeneralBot)
+
+	// Store the context using the sessionID
+	b.StoreContext(req.SessionID, c)
+
+	// Delegate the request to the service layer.
+	if err := h.Service.HandleGeneral(req); err != nil {
+		fmt.Printf("Error handling general request: %s\n", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to handle request"})
+		return
+	}
+
+	// Return an OK status after successfully processing the message
+	c.Status(http.StatusOK)
 }
 
 // Webhook for Dialogflow (discarded, use direct response)

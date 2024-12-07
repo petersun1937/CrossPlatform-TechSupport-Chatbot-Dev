@@ -79,23 +79,23 @@ func createBots(botConfig config.BotConfig, embConfig config.EmbeddingConfig, da
 	lineBot, err := bot.NewLineBot(botConfig, database, embConfig, dao)
 	if err != nil {
 		//log.Fatal("Failed to initialize LINE bot:", err)
-		fmt.Printf("Failed to initialize LINE bot: %s", err.Error())
+		log.Fatalf("Failed to initialize LINE bot: %v", err)
 	}
 
 	tgBot, err := bot.NewTGBot(botConfig, embConfig, database, dao)
 	if err != nil {
 		//log.Fatal("Failed to initialize Telegram bot:", err)
-		fmt.Printf("Failed to initialize Telegram bot: %s", err.Error())
+		log.Fatalf("Failed to initialize Telegram bot: %v", err)
 	}
 
 	fbBot, err := bot.NewFBBot(botConfig, database, embConfig, dao)
 	if err != nil {
-		log.Fatalf("Failed to create Facebook bot: %v", err)
+		log.Fatalf("Failed to initialize Facebook bot: %v", err)
 	}
 
 	igBot, err := bot.NewIGBot(botConfig, database, embConfig, dao)
 	if err != nil {
-		log.Fatalf("Failed to create Instagram bot: %v", err)
+		log.Fatalf("Failed to initialize Instagram bot: %v", err)
 	}
 
 	generalBot, err := bot.NewGeneralBot(botConfig, embConfig, database, dao)
@@ -132,43 +132,6 @@ func (s *Service) Init() error {
 		}
 	}
 	return nil
-}
-
-func (s *Service) GetUploadedDocuments() ([]string, error) {
-	documents, err := s.repository.GetAllDocuments() // Fetch all documents from the repository
-	if err != nil {
-		return nil, err
-	}
-
-	// Use a map to store unique filenames
-	uniqueFilenameMap := make(map[string]struct{})
-	//uniqueFilenames := []string{}
-	uniqueFilenames := make([]string, 0, len(documents))
-
-	// Loop through documents and collect unique filenames
-	for _, doc := range documents {
-		filename := doc.Filename
-
-		// Check if the filename is a duplicate
-		/*if count, exists := filenameCount[filename]; exists {
-			// Increment the counter and append it to the filename to make it unique
-			newFilename := fmt.Sprintf("%s(%d)", filename, count+1)
-			uniqueFilenames = append(uniqueFilenames, newFilename)
-			filenameCount[filename] = count + 1
-		} else {
-			// If it's a unique filename, store it directly
-			uniqueFilenames = append(uniqueFilenames, filename)
-			filenameCount[filename] = 0
-		}*/
-
-		// If filename is not already in the map, add it to the list
-		if _, exists := uniqueFilenameMap[filename]; !exists {
-			uniqueFilenames = append(uniqueFilenames, filename)
-			uniqueFilenameMap[filename] = struct{}{} // Store it in the map
-		}
-	}
-
-	return uniqueFilenames, nil
 }
 
 // This method checks if the tag_embeddings table has data. If not, it generates embeddings using OpenAI,
