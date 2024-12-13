@@ -79,7 +79,7 @@ type tgBot struct {
 // }
 
 // creates a new TGBot instance
-func NewTGBot(botconf config.BotConfig, embconf config.EmbeddingConfig, database database.Database, dao repository.DAO) (*tgBot, error) {
+func NewTGBot(botconf *config.BotConfig, embconf config.EmbeddingConfig, database database.Database, dao repository.DAO) (*tgBot, error) {
 	// Attempt to create a new Telegram bot using the provided token
 	botApi, err := tgbotapi.NewBotAPI(botconf.TelegramBotToken)
 	if err != nil {
@@ -92,7 +92,7 @@ func NewTGBot(botconf config.BotConfig, embconf config.EmbeddingConfig, database
 
 	return &tgBot{
 		BaseBot: BaseBot{
-			Platform:     TELEGRAM,
+			platform:     TELEGRAM,
 			conf:         botconf,
 			database:     database,
 			dao:          dao,
@@ -233,7 +233,7 @@ func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bo
 
 			// Send a welcome message to the new user.
 			welcomeMessage := fmt.Sprintf("Welcome, %s!", user.UserName)
-			if err := b.sendResponse(message, welcomeMessage); err != nil {
+			if err := b.SendResponse(message, welcomeMessage); err != nil {
 				return false, fmt.Errorf("error sending welcome message: %w", err)
 			}
 
@@ -295,13 +295,13 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 	//var err error
 
 	if strings.HasPrefix(text, "/") {
-		response = handleCommand(text)
+		response = b.BaseBot.HandleCommand(text)
 		/*response, err = handleCommand(chatID, text, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
 		}*/
-	} else if screaming && len(text) > 0 {
+	} else if b.conf.Screaming && len(text) > 0 {
 		response = strings.ToUpper(text)
 	} else {
 		// Get all document embeddings
@@ -310,7 +310,7 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
-		} else if useOpenAI {
+		} else if b.conf.UseOpenAI {
 			//conf := config.GetConfig()
 			// Perform similarity matching with the user's message when OpenAI is enabled
 			topChunksText, err := document.RetrieveTopNChunks(text, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold) // Returns maximum N chunks with similarity threshold
@@ -342,7 +342,7 @@ func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text st
 			}
 		} else {
 			// Fall back to Dialogflow if OpenAI is not enabled
-			b.BaseBot.handleMessageDialogflow(TELEGRAM, message, text, b)
+			//b.BaseBot.handleMessageDialogflow(TELEGRAM, message, text, b) //TODO
 			return
 		}
 	}
@@ -379,7 +379,7 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if _, ok := identifier.(*tgbotapi.Message); ok {
 			if text := msg.GetText(); text != nil {
-				return b.sendResponse(identifier, text.Text[0])
+				return b.SendResponse(identifier, text.Text[0])
 			}
 		}
 	}
@@ -387,7 +387,7 @@ func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // Check identifier and send message via Telegram
-func (b *tgBot) sendResponse(identifier interface{}, response string) error {
+func (b *tgBot) SendResponse(identifier interface{}, response string) error {
 	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
 		return b.SendTelegramMessage(message.Chat.ID, response)
 	} else {

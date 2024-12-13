@@ -20,7 +20,7 @@ import (
 type FbBot interface {
 	Run() error
 	HandleMessengerMessage(senderID, messageText string)
-	SendResponse(identifier interface{}, response string) error
+	//SendResponse(identifier interface{}, response string) error
 }
 
 type fbBot struct {
@@ -31,7 +31,7 @@ type fbBot struct {
 }
 
 // creates a new FbBot instance
-func NewFBBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*fbBot, error) {
+func NewFBBot(conf *config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*fbBot, error) {
 	// Verify that the page access token is available
 	if conf.FacebookPageToken == "" {
 		return nil, errors.New("facebook Page Access Token is not provided")
@@ -39,7 +39,7 @@ func NewFBBot(conf config.BotConfig, database database.Database, embconf config.
 
 	return &fbBot{
 		BaseBot: BaseBot{
-			Platform:     FACEBOOK,
+			platform:     FACEBOOK,
 			conf:         conf,
 			database:     database,
 			dao:          dao,
@@ -208,13 +208,13 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 
 	// Check if the message is a command (starts with "/")
 	if strings.HasPrefix(text, "/") {
-		response = handleCommand(text)
+		response = b.BaseBot.HandleCommand(text)
 		/*response, err = handleCommand(senderID, text, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
 		}*/
-	} else if screaming && len(text) > 0 {
+	} else if b.conf.Screaming && len(text) > 0 {
 		// Check for a "screaming" mode if applicable (uppercase response)
 		response = strings.ToUpper(text)
 	} else {
@@ -224,7 +224,7 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
-		} else if useOpenAI {
+		} else if b.conf.UseOpenAI {
 			// Perform similarity matching with the user's message
 			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
 			if err != nil {
@@ -249,14 +249,14 @@ func (b *fbBot) processUserMessage(senderID, text string) {
 			}
 		} else {
 			// Use Dialogflow if OpenAI is not enabled
-			b.BaseBot.handleMessageDialogflow(FACEBOOK, senderID, text, b)
+			//b.BaseBot.handleMessageDialogflow(FACEBOOK, senderID, text, b) //TODO
 			return
 		}
 	}
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.sendResponse(senderID, response)
+		err = b.SendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
@@ -277,7 +277,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Facebook Messenger
-			return b.sendResponse(identifier, text.Text[0])
+			return b.SendResponse(identifier, text.Text[0])
 		}
 	}
 
@@ -285,7 +285,7 @@ func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 }
 
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) sendResponse(senderID interface{}, messageText string) error {
+func (b *fbBot) SendResponse(senderID interface{}, messageText string) error {
 	//conf := config.GetConfig()
 	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.conf.FacebookPageToken
 

@@ -122,7 +122,7 @@ func (h *Handler) HandlerGeneralBot(c *gin.Context) {
 		return
 	}
 
-	// // Store the context (to use later for sending the response) TODO to bot?
+	// Store the context (to use later for sending the response)
 	b := h.Service.GetBot("general").(bot.GeneralBot)
 
 	// Store the context using the sessionID

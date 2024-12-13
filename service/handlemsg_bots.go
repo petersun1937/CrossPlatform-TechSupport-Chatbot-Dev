@@ -115,13 +115,49 @@ func (s *Service) HandleInstagram(event bot.InstagramEvent) error {
 // HandleGeneral processes requests from the frontend for the general bot.
 func (s *Service) HandleGeneral(req models.GeneralRequest) error {
 
-	genBot, exists := s.GetBot("general").(bot.GeneralBot)
+	// Get the bot responsible for sending the response.
+	b := s.GetBot("general")
+	/*_, exists := b.(bot.GeneralBot)
 	if !exists {
 		return errors.New("general bot not found")
+	}*/
+
+	// Process the message and generate a response using the service layer.
+	response, err := s.ProcessUserMessage(req.SessionID, req.Message, "general")
+	if err != nil {
+		return fmt.Errorf("error processing user message: %w", err)
 	}
 
-	// Delegate the handling of the message to the general bot.
-	genBot.HandleGeneralMessage(req.SessionID, req.Message)
+	// Use the bot to send the response.
+	//if response != "" {
+	fmt.Printf("Sent message %s \n", response)
+	err = b.SendResponse(req.SessionID, response)
+	if err != nil {
+		//c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while sending the response"})
+		fmt.Printf("An error occurred while sending the response: %s\n", err.Error())
+	}
+	//}
 
 	return nil
+}
+
+// func (s *Service) HandleGeneral(req models.GeneralRequest) error {
+
+// 	genBot, exists := s.GetBot("general").(bot.GeneralBot)
+// 	if !exists {
+// 		return errors.New("general bot not found")
+// 	}
+
+// 	// Delegate the handling of the message to the general bot.
+// 	genBot.HandleGeneralMessage(req.SessionID, req.Message)
+
+// 	return nil
+// }
+
+func (s *Service) GetBotPlatform(botTag string) (bot.Bot, bot.Platform, error) {
+	bot := s.GetBot(botTag)
+	if bot == nil {
+		return nil, 0, fmt.Errorf("bot not found for tag: %s", botTag)
+	}
+	return bot, bot.Platform(), nil
 }

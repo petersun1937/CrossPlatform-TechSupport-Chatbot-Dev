@@ -1,0 +1,211 @@
+package service
+
+import (
+	"context"
+	"crossplatform_chatbot/bot"
+	"crossplatform_chatbot/repository"
+	"fmt"
+	"strconv"
+	"strings"
+
+	document "crossplatform_chatbot/document_proc"
+
+	dialogflow "cloud.google.com/go/dialogflow/apiv2"
+	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/line/line-bot-sdk-go/linebot"
+)
+
+type DialogflowService struct {
+	dao repository.DAO
+}
+
+func NewDialogflowService(dao repository.DAO) *DialogflowService {
+	return &DialogflowService{dao: dao}
+}
+
+// DialogflowService
+
+// handleMessageDialogflow handles a message from the platform, sends it to Dialogflow for intent detection,
+// retrieves the corresponding context using RAG, generates a response with OpenAI, and sends it back to the user.
+func (s *Service) HandleMessageDialogflow(platform bot.Platform, identifier interface{}, message string) (string, error) {
+	//b := s.GetBot(botTag)
+	//baseBot := b.Base()
+
+	// Determine session ID
+	sessionID, err := s.getSessionID(platform, identifier)
+	if err != nil {
+		fmt.Printf("Error getting session ID: %v\n", err)
+		return "", fmt.Errorf("error getting session ID: %v", err)
+	}
+
+	// Detect intent using Dialogflow
+	response, err := s.fetchDialogflowResponse(sessionID, message)
+	if err != nil {
+		return "", fmt.Errorf("error detecting intent: %v", err)
+	}
+
+	intent := response.GetQueryResult().GetIntent().GetDisplayName()
+	fmt.Printf("Detected intent: %s\n", intent)
+
+	// Fetch document context
+	context, err := s.fetchDocumentContext(intent, message)
+	if err != nil {
+		return "", fmt.Errorf("error fetching document context: %v", err)
+	}
+
+	// Generate response using OpenAI with context
+	prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
+	finalResponse, err := s.client.GetResponse(prompt)
+	if err != nil {
+		return "", fmt.Errorf("error generating OpenAI response: %v", err)
+	}
+
+	return finalResponse, nil
+}
+
+// fetchDialogflowResponse sends the message to Dialogflow and retrieves the response with detected intent.
+func (s *Service) fetchDialogflowResponse(sessionID, text string) (*dialogflowpb.DetectIntentResponse, error) {
+	conf := s.botConfig
+	response, err := s.detectIntentText(conf.DialogflowProjectID, sessionID, text, "en")
+	if err != nil {
+		return nil, fmt.Errorf("error detecting intent with Dialogflow: %v", err)
+	}
+	return response, nil
+}
+
+// func (s *Service) fetchDialogflowResponse(sessionID, text string) (*dialogflowpb.DetectIntentResponse, error) {
+// 	projectID := "your-project-id" //TODO
+// 	return s.detectIntentText(projectID, sessionID, text, "en")
+// }
+
+// Send a text query to Dialogflow and returns the response
+func (s *Service) detectIntentText(projectID, sessionID, text, languageCode string) (*dialogflowpb.DetectIntentResponse, error) {
+	ctx := context.Background()
+	client, err := dialogflow.NewSessionsClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Dialogflow client: %v", err)
+	}
+	defer client.Close()
+
+	sessionPath := fmt.Sprintf("projects/%s/agent/sessions/%s", projectID, sessionID)
+	req := &dialogflowpb.DetectIntentRequest{
+		Session: sessionPath,
+		QueryInput: &dialogflowpb.QueryInput{
+			Input: &dialogflowpb.QueryInput_Text{
+				Text: &dialogflowpb.TextInput{
+					Text:         text,
+					LanguageCode: languageCode,
+				},
+			},
+		},
+	}
+	return client.DetectIntent(ctx, req)
+}
+
+// fetchDocumentContext retrieves the document chunks based on the detected intent's associated tags.
+func (s *Service) fetchDocumentContext(intent, userMessage string) (string, error) {
+	tags := mapTags(intent)
+	if len(tags) > 0 {
+		return s.retrieveChunksByTags(tags)
+	}
+	return s.fallbackContext(userMessage)
+}
+
+// mapIntent maps user input to predefined intents.
+// func mapIntent(message string) string {
+// 	switch {
+// 	case strings.Contains(strings.ToLower(message), "faq"):
+// 		return "FAQ Intent"
+// 	case strings.Contains(strings.ToLower(message), "product"):
+// 		return "Product Inquiry Intent"
+// 	case strings.Contains(strings.ToLower(message), "troubleshoot"):
+// 		return "Troubleshooting Intent"
+// 	case strings.Contains(strings.ToLower(message), "install"):
+// 		return "Installation Intent"
+// 	default:
+// 		return "Default Intent"
+// 	}
+// }
+
+// Defines tags associated with an intent.
+func mapTags(intent string) []string {
+	switch intent {
+	case "FAQ Intent":
+		return []string{"FAQs", "Product Information", "User Guide & How-To"}
+	case "Product Inquiry Intent":
+		return []string{"Product Information", "Account & Billing", "Order Status & Tracking"}
+	case "Troubleshooting Intent":
+		return []string{"Technical Troubleshooting", "Installation & Setup", "Security & Privacy"}
+	case "Installation Intent":
+		return []string{"Installation & Setup"}
+	default:
+		return nil
+	}
+}
+
+// retrieveChunksByTags fetches document chunks that match the specified tags
+func (s *Service) retrieveChunksByTags(tags []string) (string, error) {
+	documentEmbeddings, err := s.repository.GetDocumentChunksByTags(tags)
+	if err != nil {
+		return "", fmt.Errorf("error retrieving document chunks: %v", err)
+	}
+
+	var contextChunks []string
+	for _, chunk := range documentEmbeddings {
+		contextChunks = append(contextChunks, chunk.DocText)
+	}
+
+	return strings.Join(contextChunks, "\n"), nil
+}
+
+// fallbackContext retrieves document chunks based on similarity to the user's message, functions as basic openAI mode.
+func (s *Service) fallbackContext(userMessage string) (string, error) {
+	documentEmbeddings, chunkText, err := s.repository.FetchEmbeddings()
+	if err != nil {
+		return "", fmt.Errorf("error fetching embeddings: %v", err)
+	}
+
+	// topChunks, err := document.RetrieveTopNChunks(userMessage, documentEmbeddings, 3, chunkText, 0.75)
+	// if err != nil || len(topChunks) == 0 {
+	// 	return "", fmt.Errorf("no relevant chunks found: %v", err)
+	// }
+	topChunks, err := document.RetrieveTopNChunks(userMessage, documentEmbeddings, 3, chunkText, 0.75)
+	if err != nil || len(topChunks) == 0 {
+		fmt.Printf("No relevant chunks found for message: %s\n", userMessage)
+		return "", nil
+	}
+
+	context := strings.Join(topChunks, "\n")
+	fmt.Printf("Retrieved fallback context: %s\n", context)
+	return context, nil
+
+	//return strings.Join(topChunks, "\n"), nil
+}
+
+func (s *Service) getSessionID(platform bot.Platform, identifier interface{}) (string, error) {
+	switch platform {
+	case bot.LINE:
+		if event, ok := identifier.(*linebot.Event); ok {
+			return event.Source.UserID, nil
+		}
+		return "", fmt.Errorf("invalid LINE event identifier")
+	case bot.TELEGRAM:
+		if message, ok := identifier.(*tgbotapi.Message); ok {
+			return strconv.FormatInt(message.Chat.ID, 10), nil
+		}
+		return "", fmt.Errorf("invalid Telegram message identifier")
+	case bot.FACEBOOK:
+		if recipientID, ok := identifier.(string); ok {
+			return recipientID, nil
+		}
+		return "", fmt.Errorf("invalid Messenger recipient identifier")
+	case bot.GENERAL:
+		if sessionID, ok := identifier.(string); ok {
+			return sessionID, nil
+		}
+		return "", fmt.Errorf("invalid session identifier")
+	default:
+		return "", fmt.Errorf("unsupported platform")
+	}
+}

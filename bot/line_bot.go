@@ -33,7 +33,7 @@ type lineBot struct {
 	//service    *service.Service
 }
 
-func NewLineBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*lineBot, error) {
+func NewLineBot(conf *config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*lineBot, error) {
 	lineClient, err := linebot.New(conf.LineChannelSecret, conf.LineChannelToken)
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func NewLineBot(conf config.BotConfig, database database.Database, embconf confi
 
 	return &lineBot{
 		BaseBot: BaseBot{
-			Platform:     LINE,
+			platform:     LINE,
 			conf:         conf,
 			database:     database,
 			dao:          dao,
@@ -233,13 +233,13 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
 
 	// Check if the message is a command (starts with "/")
 	if strings.HasPrefix(text, "/") {
-		response = handleCommand(text)
+		response = b.BaseBot.HandleCommand(text)
 		/*response, err = handleCommand(userID, text, b)
 		if err != nil {
 			fmt.Printf("An error occurred: %s \n", err.Error())
 			response = "An error occurred while processing your command."
 		}*/
-	} else if screaming && len(text) > 0 {
+	} else if b.conf.Screaming && len(text) > 0 {
 		// Check for a "screaming" mode if applicable (uppercase response)
 		response = strings.ToUpper(text)
 	} else {
@@ -249,7 +249,7 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
-		} else if useOpenAI {
+		} else if b.conf.UseOpenAI {
 			// Perform similarity matching with the user's message
 			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Top 10 relevant chunks, threshold score 0.7
 			if err != nil {
@@ -273,15 +273,15 @@ func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
 				}
 			}
 		} else {
-			// Use Dialogflow if OpenAI is not enabled
-			b.BaseBot.handleMessageDialogflow(LINE, event, text, b)
+			// Use Dialogflow if OpenAI is not enabled // TODO
+			//b.BaseBot.handleMessageDialogflow(LINE, event, text, b) // TODO
 			return
 		}
 	}
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.sendResponse(event, response)
+		err = b.SendResponse(event, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
@@ -296,7 +296,7 @@ func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentRe
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if _, ok := identifier.(*linebot.Event); ok {
 			if text := msg.GetText(); text != nil {
-				return b.sendResponse(identifier, text.Text[0])
+				return b.SendResponse(identifier, text.Text[0])
 			}
 		}
 	}
@@ -304,7 +304,7 @@ func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentRe
 }
 
 // Check identifier and send message via LINE
-func (b *lineBot) sendResponse(identifier interface{}, response string) error {
+func (b *lineBot) SendResponse(identifier interface{}, response string) error {
 	if event, ok := identifier.(*linebot.Event); ok { // Assertion to check if identifier is of type linebot.Event
 		return b.sendLineMessage(event.ReplyToken, response)
 	} else {

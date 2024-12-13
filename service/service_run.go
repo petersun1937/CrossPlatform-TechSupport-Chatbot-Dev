@@ -15,10 +15,12 @@ type Service struct {
 	database   database.Database // TODO
 	repository repository.DAO
 	client     *openai.Client
+	botConfig  *config.BotConfig
+	embConfig  config.EmbeddingConfig
 	//TagEmbeddings map[string][]float64
 }
 
-func NewService(botConfig config.BotConfig, embConfig *config.EmbeddingConfig, db database.Database) *Service {
+func NewService(botConfig *config.BotConfig, embConfig *config.EmbeddingConfig, db database.Database) *Service {
 	// Initialize the DAO and OpenAI client
 	dao := repository.NewDAO(db)
 	openaiClient := openai.NewClient()
@@ -28,6 +30,8 @@ func NewService(botConfig config.BotConfig, embConfig *config.EmbeddingConfig, d
 		database:   db,
 		repository: dao,
 		client:     openaiClient,
+		botConfig:  botConfig,
+		embConfig:  *embConfig, // pointer no pointer?
 	}
 
 	// Retrieve or initialize TagEmbeddings and update embConfig (unused, use prompt based instead)
@@ -74,7 +78,7 @@ func (s *Service) RunBots() error {
 	return nil
 }
 
-func createBots(botConfig config.BotConfig, embConfig config.EmbeddingConfig, database database.Database, dao repository.DAO) map[string]bot.Bot {
+func createBots(botConfig *config.BotConfig, embConfig config.EmbeddingConfig, database database.Database, dao repository.DAO) map[string]bot.Bot {
 	// Initialize bots
 	lineBot, err := bot.NewLineBot(botConfig, database, embConfig, dao)
 	if err != nil {

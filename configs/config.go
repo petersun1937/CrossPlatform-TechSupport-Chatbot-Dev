@@ -52,6 +52,8 @@ type BotConfig struct {
 	FacebookVerifyToken  string
 	InstagramVerifyToken string
 	InstagramPageToken   string
+	Screaming            bool
+	UseOpenAI            bool
 }
 
 type OpenAIConfig struct {
@@ -131,6 +133,8 @@ func loadConfig() error {
 			FacebookVerifyToken:  os.Getenv("FACEBOOK_VERIFY_TOKEN"),
 			InstagramVerifyToken: os.Getenv("IG_VERIFY_TOKEN"),
 			InstagramPageToken:   os.Getenv("IG_PAGE_TOKEN"),
+			Screaming:            false,
+			UseOpenAI:            true,
 		},
 		OpenAIConfig: OpenAIConfig{
 			OpenaiAPIKey:   os.Getenv("OPENAI_API_KEY"),

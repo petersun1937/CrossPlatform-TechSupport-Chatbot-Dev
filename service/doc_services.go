@@ -2,7 +2,10 @@ package service
 
 import (
 	"crossplatform_chatbot/bot"
+	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
+	"crossplatform_chatbot/utils"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -46,9 +49,10 @@ func (s *Service) GetUploadedDocuments() ([]string, error) {
 
 func (s *Service) HandleDocumentUpload(filename, fileID, filePath string) error {
 	// step 1: call bot to process documents
-	b := s.GetBot("general").(bot.GeneralBot)
+	//b := s.GetBot("general").(bot.GeneralBot)
 
-	documents, tags, err := b.ProcessDocument(filename, fileID, filePath)
+	//documents, tags, err := b.ProcessDocument(filename, fileID, filePath)
+	documents, tags, err := s.ProcessDocument(filename, fileID, filePath)
 	if err != nil {
 		return err
 	}
@@ -90,6 +94,55 @@ func (s *Service) HandleDocumentUpload(filename, fileID, filePath string) error 
 
 		return nil
 	})
+}
+
+func (s *Service) ProcessDocument(filename, sessionID, filePath string) ([]models.Document, []string, error) {
+	docText, err := document.DownloadAndExtractText(filePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error processing document: %w", err)
+	}
+
+	chunks := document.OverlapChunk(docText, 500, 100)
+	documents := make([]models.Document, 0)
+	tagList := []string{}
+
+	for i, chunk := range chunks {
+		document, err := s.StoreDocumentChunks(filename, fmt.Sprintf("%s_%s", filename, sessionID), chunk, i)
+		if err != nil {
+			return nil, nil, err
+		}
+		documents = append(documents, document)
+
+		tags, err := s.client.AutoTagWithOpenAI(chunk)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
+		}
+		tagList = append(tagList, tags...)
+	}
+
+	return documents, utils.RemoveDuplicates(tagList), nil
+}
+
+func (s *Service) StoreDocumentChunks(filename, docID, chunkText string, chunkID int) (models.Document, error) {
+	embedding, err := s.client.EmbedText(chunkText)
+	if err != nil {
+		return models.Document{}, fmt.Errorf("error embedding chunk: %v", err)
+	}
+
+	document := models.Document{
+		Filename:  filename,
+		DocID:     docID,
+		ChunkID:   fmt.Sprintf("%s_chunk_%d", docID, chunkID),
+		DocText:   utils.SanitizeText(chunkText),
+		Embedding: utils.Float64SliceToPostgresArray(embedding),
+	}
+
+	/*err = s.repository.CreateDocumentEmbedding(document)
+	if err != nil {
+		return models.Document{}, fmt.Errorf("error storing document chunk: %v", err)
+	}*/
+
+	return document, nil
 }
 
 func (s *Service) HandleTGDocumentUpload(filename, fileID, filePath string) error {

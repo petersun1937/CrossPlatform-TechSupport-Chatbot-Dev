@@ -22,7 +22,7 @@ type IgBot interface {
 	Run() error
 	//HandleInstagramWebhook(c *gin.Context, igBot IgBot)
 	HandleInstagramMessage(senderID, messageText string)
-	//sendResponse(identifier interface{}, response string) error
+	//SendResponse(identifier interface{}, response string) error
 	//setWebhook(webhookURL string) error
 }
 
@@ -35,7 +35,7 @@ type igBot struct {
 }
 
 // creates a new IGBot instance
-func NewIGBot(conf config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*igBot, error) {
+func NewIGBot(conf *config.BotConfig, database database.Database, embconf config.EmbeddingConfig, dao repository.DAO) (*igBot, error) {
 	// Verify that the page access token is available
 	if conf.InstagramPageToken == "" {
 		return nil, errors.New(" Instagram Page Access Token is not provided")
@@ -43,7 +43,7 @@ func NewIGBot(conf config.BotConfig, database database.Database, embconf config.
 
 	return &igBot{
 		BaseBot: BaseBot{
-			Platform:     INSTAGRAM,
+			platform:     INSTAGRAM,
 			conf:         conf,
 			database:     database,
 			dao:          dao,
@@ -212,7 +212,7 @@ func (b *igBot) HandleInstagramMessage(senderID, messageText string) {
 // }
 
 // sendResponse sends a message to the specified user on Instagram
-func (b *igBot) sendResponse(senderID interface{}, messageText string) error {
+func (b *igBot) SendResponse(senderID interface{}, messageText string) error {
 
 	//conf := config.GetConfig()
 	url := fmt.Sprintf("https://graph.facebook.com/v17.0/me/messages?access_token=%s", b.conf.InstagramPageToken)
@@ -278,7 +278,7 @@ func (b *igBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResp
 	for _, msg := range response.QueryResult.FulfillmentMessages {
 		if text := msg.GetText(); text != nil {
 			// Send the response message to the user on Instagram
-			return b.sendResponse(senderID, text.Text[0])
+			return b.SendResponse(senderID, text.Text[0])
 		}
 	}
 
@@ -294,8 +294,8 @@ func (b *igBot) processUserMessage(senderID, text string) {
 
 	// Check if the message is a command (starts with "/")
 	if strings.HasPrefix(text, "/") {
-		response = handleCommand(text)
-	} else if screaming && len(text) > 0 {
+		response = b.BaseBot.HandleCommand(text)
+	} else if b.conf.Screaming && len(text) > 0 {
 		// Handle "screaming" mode, where responses are in uppercase
 		response = strings.ToUpper(text)
 	} else {
@@ -305,7 +305,7 @@ func (b *igBot) processUserMessage(senderID, text string) {
 		if err != nil {
 			fmt.Printf("Error retrieving document embeddings: %v", err)
 			response = "Error retrieving document embeddings."
-		} else if useOpenAI {
+		} else if b.conf.UseOpenAI {
 			// Perform similarity matching with the user's message
 			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
 			if err != nil {
@@ -330,14 +330,14 @@ func (b *igBot) processUserMessage(senderID, text string) {
 			}
 		} else {
 			// Use Dialogflow if OpenAI is not enabled
-			b.BaseBot.handleMessageDialogflow(INSTAGRAM, senderID, text, b)
+			//b.BaseBot.handleMessageDialogflow(INSTAGRAM, senderID, text, b) //TODO
 			return
 		}
 	}
 
 	// Send the response if it's not empty
 	if response != "" {
-		err = b.sendResponse(senderID, response)
+		err = b.SendResponse(senderID, response)
 		if err != nil {
 			fmt.Printf("Error sending response: %s\n", err.Error())
 		}
