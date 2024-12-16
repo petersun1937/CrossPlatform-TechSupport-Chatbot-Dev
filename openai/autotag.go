@@ -47,12 +47,12 @@ func (c *Client) AutoTagWithOpenAI(docText string) ([]string, error) {
 	// Tokenize the prompt to count tokens accurately
 	tokens := tkm.Encode(basePrompt, nil, nil)
 	// Maximum prompt size (reserving 50 tokens for completion)
-	MaxPromptSize := c.TagTokenSize - 50
+	maxPromptSize := c.TagTokenSize - 50
 
 	// Check if the prompt exceeds MaxPromptSize
-	if len(tokens) > MaxPromptSize {
+	if len(tokens) > maxPromptSize {
 		// Trim the content section (docText) to fit within the limit
-		tokens = tokens[:MaxPromptSize]
+		tokens = tokens[:maxPromptSize]
 		// Decode the trimmed tokens back to text
 		basePrompt = tkm.Decode(tokens)
 

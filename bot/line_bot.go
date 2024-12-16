@@ -3,16 +3,13 @@ package bot
 import (
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	"github.com/line/line-bot-sdk-go/linebot"
 	"gorm.io/gorm"
 )
@@ -20,7 +17,9 @@ import (
 type LineBot interface {
 	Run() error
 	ParseRequest(req *http.Request) ([]*linebot.Event, error)
-	HandleLineMessage(event *linebot.Event, message *linebot.TextMessage)
+	//HandleLineMessage(event *linebot.Event, message *linebot.TextMessage)
+	GetUserProfile(userID string) (*linebot.UserProfileResponse, error)
+	ValidateUser(userProfile *linebot.UserProfileResponse, userID string) (bool, error)
 	//sendResponse(identifier interface{}, response string) error
 }
 
@@ -93,17 +92,17 @@ func (b *lineBot) Run() error {
 	return nil
 }
 
-func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
+/*func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextMessage) {
 
 	// Retrieve and validate user profile
-	userProfile, err := b.getUserProfile(event.Source.UserID)
+	userProfile, err := b.GetUserProfile(event.Source.UserID)
 	if err != nil {
 		fmt.Printf("Error fetching user profile: %v\n", err)
 		return
 	}
 
 	// Ensure user exists in the database
-	userExists, err := b.validateUser(userProfile, event.Source.UserID)
+	userExists, err := b.ValidateUser(userProfile, event.Source.UserID)
 	if err != nil {
 		fmt.Printf("Error ensuring user exists: %v\n", err)
 		return
@@ -133,10 +132,10 @@ func (b *lineBot) HandleLineMessage(event *linebot.Event, message *linebot.TextM
 	// 		fmt.Printf("Error sending response message: %v\n", err)
 	// 	}
 	// }
-}
+}*/
 
 // Get user profile from Line
-func (b *lineBot) getUserProfile(userID string) (*linebot.UserProfileResponse, error) {
+func (b *lineBot) GetUserProfile(userID string) (*linebot.UserProfileResponse, error) {
 	userProfile, err := b.lineClient.GetProfile(userID).Do()
 	if err != nil {
 		return nil, err
@@ -145,7 +144,7 @@ func (b *lineBot) getUserProfile(userID string) (*linebot.UserProfileResponse, e
 }
 
 // validateUser checks if the user exists in the database and creates a new record if not.
-func (b *lineBot) validateUser(userProfile *linebot.UserProfileResponse, userID string) (bool, error) {
+func (b *lineBot) ValidateUser(userProfile *linebot.UserProfileResponse, userID string) (bool, error) {
 	var dbUser models.User
 
 	// Check if the user exists in the database.
@@ -224,87 +223,87 @@ func (b *lineBot) validateUser(userProfile *linebot.UserProfileResponse, userID 
 // }
 
 // Process the user's message (commands or Dialogflow)
-func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
-	userID := event.Source.UserID
-	fmt.Printf("Received message from %s: %s \n", userID, text)
+// func (b *lineBot) processUserMessage(event *linebot.Event, text string) {
+// 	userID := event.Source.UserID
+// 	fmt.Printf("Received message from %s: %s \n", userID, text)
 
-	var response string
-	var err error
+// 	var response string
+// 	var err error
 
-	// Check if the message is a command (starts with "/")
-	if strings.HasPrefix(text, "/") {
-		response = b.BaseBot.HandleCommand(text)
-		/*response, err = handleCommand(userID, text, b)
-		if err != nil {
-			fmt.Printf("An error occurred: %s \n", err.Error())
-			response = "An error occurred while processing your command."
-		}*/
-	} else if b.conf.Screaming && len(text) > 0 {
-		// Check for a "screaming" mode if applicable (uppercase response)
-		response = strings.ToUpper(text)
-	} else {
-		// Fetch document embeddings and try to match based on similarity
-		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
-		//documentEmbeddings, chunkText, err := b.database.GetAllDocumentEmbeddings()
-		if err != nil {
-			fmt.Printf("Error retrieving document embeddings: %v", err)
-			response = "Error retrieving document embeddings."
-		} else if b.conf.UseOpenAI {
-			// Perform similarity matching with the user's message
-			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Top 10 relevant chunks, threshold score 0.7
-			if err != nil {
-				fmt.Printf("Error retrieving document chunks: %v", err)
-				response = "Error retrieving related document information."
-			} else if len(topChunks) > 0 {
-				// If similar chunks are found, provide them as context for GPT
-				context := strings.Join(topChunks, "\n")
-				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
+// 	// Check if the message is a command (starts with "/")
+// 	if strings.HasPrefix(text, "/") {
+// 		response = b.BaseBot.HandleCommand(text)
+// 		/*response, err = handleCommand(userID, text, b)
+// 		if err != nil {
+// 			fmt.Printf("An error occurred: %s \n", err.Error())
+// 			response = "An error occurred while processing your command."
+// 		}*/
+// 	} else if b.conf.Screaming && len(text) > 0 {
+// 		// Check for a "screaming" mode if applicable (uppercase response)
+// 		response = strings.ToUpper(text)
+// 	} else {
+// 		// Fetch document embeddings and try to match based on similarity
+// 		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
+// 		//documentEmbeddings, chunkText, err := b.database.GetAllDocumentEmbeddings()
+// 		if err != nil {
+// 			fmt.Printf("Error retrieving document embeddings: %v", err)
+// 			response = "Error retrieving document embeddings."
+// 		} else if b.conf.UseOpenAI {
+// 			// Perform similarity matching with the user's message
+// 			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Top 10 relevant chunks, threshold score 0.7
+// 			if err != nil {
+// 				fmt.Printf("Error retrieving document chunks: %v", err)
+// 				response = "Error retrieving related document information."
+// 			} else if len(topChunks) > 0 {
+// 				// If similar chunks are found, provide them as context for GPT
+// 				context := strings.Join(topChunks, "\n")
+// 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
 
-				// Call GPT with the context and user query
-				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				}
-			} else {
-				// If no relevant document found, fallback to OpenAI response
-				response, err = b.BaseBot.GetOpenAIResponse(text)
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				}
-			}
-		} else {
-			// Use Dialogflow if OpenAI is not enabled // TODO
-			//b.BaseBot.handleMessageDialogflow(LINE, event, text, b) // TODO
-			return
-		}
-	}
+// 				// Call GPT with the context and user query
+// 				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				}
+// 			} else {
+// 				// If no relevant document found, fallback to OpenAI response
+// 				response, err = b.BaseBot.GetOpenAIResponse(text)
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				}
+// 			}
+// 		} else {
+// 			// Use Dialogflow if OpenAI is not enabled // TODO
+// 			//b.BaseBot.handleMessageDialogflow(LINE, event, text, b) // TODO
+// 			return
+// 		}
+// 	}
 
-	// Send the response if it's not empty
-	if response != "" {
-		err = b.SendResponse(event, response)
-		if err != nil {
-			fmt.Printf("Error sending response: %s\n", err.Error())
-		}
-	}
-}
+// 	// Send the response if it's not empty
+// 	if response != "" {
+// 		err = b.SendReply(event, response)
+// 		if err != nil {
+// 			fmt.Printf("Error sending response: %s\n", err.Error())
+// 		}
+// 	}
+// }
 
 // handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
-func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
+// func (b *lineBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-	// Send the response to respective platform
-	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if _, ok := identifier.(*linebot.Event); ok {
-			if text := msg.GetText(); text != nil {
-				return b.SendResponse(identifier, text.Text[0])
-			}
-		}
-	}
-	return fmt.Errorf("invalid LINE event identifier")
-}
+// 	// Send the response to respective platform
+// 	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
+// 	for _, msg := range response.QueryResult.FulfillmentMessages {
+// 		if _, ok := identifier.(*linebot.Event); ok {
+// 			if text := msg.GetText(); text != nil {
+// 				return b.SendReply(identifier, text.Text[0])
+// 			}
+// 		}
+// 	}
+// 	return fmt.Errorf("invalid LINE event identifier")
+// }
 
 // Check identifier and send message via LINE
-func (b *lineBot) SendResponse(identifier interface{}, response string) error {
+func (b *lineBot) SendReply(identifier interface{}, response string) error {
 	if event, ok := identifier.(*linebot.Event); ok { // Assertion to check if identifier is of type linebot.Event
 		return b.sendLineMessage(event.ReplyToken, response)
 	} else {

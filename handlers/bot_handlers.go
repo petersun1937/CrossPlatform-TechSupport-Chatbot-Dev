@@ -123,20 +123,31 @@ func (h *Handler) HandlerGeneralBot(c *gin.Context) {
 	}
 
 	// Store the context (to use later for sending the response)
-	b := h.Service.GetBot("general").(bot.GeneralBot)
+	b := h.Service.GetBot("general")
+	genBot := b.(bot.GeneralBot)
 
 	// Store the context using the sessionID
-	b.StoreContext(req.SessionID, c)
+	genBot.StoreContext(req.SessionID, c)
 
 	// Delegate the request to the service layer.
-	if err := h.Service.HandleGeneral(req); err != nil {
+	response, err := h.Service.HandleGeneral(req)
+	if err != nil {
 		fmt.Printf("Error handling general request: %s\n", err.Error())
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to handle request"})
 		return
 	}
 
+	// TODO: store context?
+	// Send reply to the frontend along with status code
+	fmt.Printf("Sent message %s \n", response)
+	err = b.SendReply(req.SessionID, response)
+	if err != nil {
+		//c.JSON(http.StatusInternalServerError, gin.H{"error": "An error occurred while sending the response"})
+		fmt.Printf("An error occurred while sending the response: %s\n", err.Error())
+	}
+
 	// Return an OK status after successfully processing the message
-	c.Status(http.StatusOK)
+	//c.Status(http.StatusOK)
 }
 
 // Webhook for Dialogflow (discarded, use direct response)

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"crossplatform_chatbot/bot"
 	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
 	"crossplatform_chatbot/utils"
@@ -97,12 +96,13 @@ func (s *Service) HandleDocumentUpload(filename, fileID, filePath string) error 
 }
 
 func (s *Service) ProcessDocument(filename, sessionID, filePath string) ([]models.Document, []string, error) {
+	// Extract text from the uploaded file
 	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error processing document: %w", err)
 	}
 
-	chunks := document.OverlapChunk(docText, 500, 100)
+	chunks := document.OverlapChunk(docText, 500, 100) //TODO to config
 	documents := make([]models.Document, 0)
 	tagList := []string{}
 
@@ -112,7 +112,7 @@ func (s *Service) ProcessDocument(filename, sessionID, filePath string) ([]model
 			return nil, nil, err
 		}
 		documents = append(documents, document)
-
+		// Auto-tagging using OpenAI
 		tags, err := s.client.AutoTagWithOpenAI(chunk)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error auto-tagging document: %w", err)
@@ -120,6 +120,7 @@ func (s *Service) ProcessDocument(filename, sessionID, filePath string) ([]model
 		tagList = append(tagList, tags...)
 	}
 
+	// Remove duplicates from the tag list
 	return documents, utils.RemoveDuplicates(tagList), nil
 }
 
@@ -145,49 +146,49 @@ func (s *Service) StoreDocumentChunks(filename, docID, chunkText string, chunkID
 	return document, nil
 }
 
-func (s *Service) HandleTGDocumentUpload(filename, fileID, filePath string) error {
-	// step 1: call bot to process documents
-	b := s.GetBot("telegram").(bot.TgBot)
+// func (s *Service) HandleTGDocumentUpload(filename, fileID, filePath string) error {
+// 	//  call bot to process documents
+// 	//b := s.GetBot("telegram").(bot.TgBot)
 
-	documents, tags, err := b.ProcessDocument(filename, fileID, filePath)
-	if err != nil {
-		return err
-	}
+// 	documents, tags, err := s.ProcessDocument(filename, fileID, filePath)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	// dao version
-	// return s.repository.CreateDocumentsAndMeta(uniqueDocID, documents, tags)
+// 	// dao version
+// 	// return s.repository.CreateDocumentsAndMeta(uniqueDocID, documents, tags)
 
-	// service version
-	// step 2: make db data
-	documentModels := make([]*models.Document, 0)
-	for _, doc := range documents {
-		model := models.Document{
-			Filename:  doc.Filename,
-			DocID:     doc.DocID,
-			ChunkID:   doc.ChunkID,
-			DocText:   doc.DocText,
-			Embedding: doc.Embedding,
-		}
-		documentModels = append(documentModels, &model)
-	}
-	metadata := models.DocumentMetadata{
-		DocID: fileID,
-		Tags:  tags,
-	}
+// 	// service version
+// 	// make db data
+// 	documentModels := make([]*models.Document, 0)
+// 	for _, doc := range documents {
+// 		model := models.Document{
+// 			Filename:  doc.Filename,
+// 			DocID:     doc.DocID,
+// 			ChunkID:   doc.ChunkID,
+// 			DocText:   doc.DocText,
+// 			Embedding: doc.Embedding,
+// 		}
+// 		documentModels = append(documentModels, &model)
+// 	}
+// 	metadata := models.DocumentMetadata{
+// 		DocID: fileID,
+// 		Tags:  tags,
+// 	}
 
-	// step 3: do transaction
-	return s.database.GetDB().Transaction(func(tx *gorm.DB) error {
-		// batch insert Documents
-		if err := tx.Create(documentModels).Error; err != nil {
-			return err
-		}
+// 	//  do transaction
+// 	return s.database.GetDB().Transaction(func(tx *gorm.DB) error {
+// 		// batch insert Documents
+// 		if err := tx.Create(documentModels).Error; err != nil {
+// 			return err
+// 		}
 
-		// insert DocumentMetadata
-		if err := tx.Create(&metadata).Error; err != nil {
-			return err
-		}
+// 		// insert DocumentMetadata
+// 		if err := tx.Create(&metadata).Error; err != nil {
+// 			return err
+// 		}
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-}
+// }

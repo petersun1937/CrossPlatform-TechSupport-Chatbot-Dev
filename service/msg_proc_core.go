@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-func (s *Service) ProcessUserMessage(sessionID, message, botTag string) (string, error) {
-	fmt.Printf("Received message: %s\n", message)
-	fmt.Printf("Session ID: %s\n", sessionID)
+func (s *Service) processUserMessage(chatID, message, botTag string) (string, error) { //TODO add username?
+	fmt.Printf("Received message: %s from %s \n", message, botTag)
+	fmt.Printf("Chat ID: %s\n", chatID)
 
 	b := s.GetBot(botTag)
 	baseBot := b.Base()
@@ -60,7 +60,8 @@ func (s *Service) ProcessUserMessage(sessionID, message, botTag string) (string,
 		} else {
 			// Fallback to dialogflow or another approach.
 			//response, err = s.HandleMessageDialogflow(sessionID, message)
-			response, err = s.HandleMessageDialogflow(platform, sessionID, message)
+
+			response, err = s.HandleMessageDialogflow(platform, chatID, message) // sessionID passed down from outside
 			if err != nil {
 				return "Error processing with Dialogflow.", err
 			}

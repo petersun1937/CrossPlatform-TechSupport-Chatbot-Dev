@@ -1,9 +1,6 @@
 package document_proc
 
 import (
-	config "crossplatform_chatbot/configs"
-	"crossplatform_chatbot/openai"
-	"crossplatform_chatbot/repository"
 	"fmt"
 )
 
@@ -26,22 +23,22 @@ func GetRelevantTags(queryEmbedding []float64, tagEmbeddings map[string][]float6
 }
 
 // StoreDocumentChunks splits the given text into chunks and embed them one by one via embedding model
-func StoreDocumentChunks(Filename, sessionID, text string, embConfig config.EmbeddingConfig, client *openai.Client, dao repository.DAO) error {
-	// Chunk text and embed each chunk
-	chunks := OverlapChunk(text, embConfig.ChunkSize, embConfig.MinChunkSize)
-	for i, chunk := range chunks {
-		embedding, err := client.EmbedText(chunk)
-		if err != nil {
-			return fmt.Errorf("error embedding chunk %d: %v", i, err)
-		}
+// func StoreDocumentChunks(Filename, sessionID, text string, embConfig config.EmbeddingConfig, client *openai.Client, dao repository.DAO) error {
+// 	// Chunk text and embed each chunk
+// 	chunks := OverlapChunk(text, embConfig.ChunkSize, embConfig.MinChunkSize)
+// 	for i, chunk := range chunks {
+// 		embedding, err := client.EmbedText(chunk)
+// 		if err != nil {
+// 			return fmt.Errorf("error embedding chunk %d: %v", i, err)
+// 		}
 
-		chunkID := fmt.Sprintf("%s_chunk_%d_%s", Filename, i, sessionID)
-		if err := dao.CreateDocumentEmbedding(Filename, sessionID, chunkID, chunk, embedding); err != nil {
-			return fmt.Errorf("error storing chunks: %v", err)
-		}
-	}
-	return nil
-}
+// 		chunkID := fmt.Sprintf("%s_chunk_%d_%s", Filename, i, sessionID)
+// 		if err := dao.CreateDocumentEmbedding(Filename, sessionID, chunkID, chunk, embedding); err != nil {
+// 			return fmt.Errorf("error storing chunks: %v", err)
+// 		}
+// 	}
+// 	return nil
+// }
 
 // AutoTagDocumentEmbeddings
 // func AutoTagDocumentEmbeddings(sessionID string, client *openai.Client, dao repository.DAO, tagEmbeddings map[string][]float64) ([]string, error) {

@@ -8,18 +8,17 @@ import (
 	"fmt"
 	"net/http"
 
-	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	"github.com/gin-gonic/gin"
 )
 
-type Document struct {
-	Filename string
-	DocID    string
-	ChunkID  string
-	DocText  string
-	//Embedding []float64 `gorm:"type:float8[]"`
-	Embedding string `gorm:"type:float8[]"` // Store as a string and ensure it's passed correctly
-}
+// type Document struct {
+// 	Filename string
+// 	DocID    string
+// 	ChunkID  string
+// 	DocText  string
+// 	//Embedding []float64 `gorm:"type:float8[]"`
+// 	Embedding string `gorm:"type:float8[]"` // Store as a string and ensure it's passed correctly
+// }
 
 type GeneralBot interface {
 	Run() error
@@ -168,7 +167,7 @@ func (b *generalBot) Run() error {
 
 // }
 
-func (b *generalBot) SendResponse(identifier interface{}, response string) error {
+func (b *generalBot) SendReply(identifier interface{}, response string) error {
 	// Perform type assertion to convert identifier to string
 	if sessionID, ok := identifier.(string); ok {
 		// Retrieve context using the sessionID
@@ -207,15 +206,15 @@ func getContext(sessionID string) (*gin.Context, error) {
 	return nil, fmt.Errorf("no context found for session ID %s", sessionID)
 }
 
-func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
-	// Send the response to the respective platform or frontend
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if text := msg.GetText(); text != nil {
-			return b.SendResponse(identifier, text.Text[0])
-		}
-	}
-	return fmt.Errorf("invalid identifier for frontend or platform")
-}
+// func (b *generalBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
+// 	// Send the response to the respective platform or frontend
+// 	for _, msg := range response.QueryResult.FulfillmentMessages {
+// 		if text := msg.GetText(); text != nil {
+// 			return b.SendReply(identifier, text.Text[0])
+// 		}
+// 	}
+// 	return fmt.Errorf("invalid identifier for frontend or platform")
+// }
 
 /*func (b *generalBot) ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)

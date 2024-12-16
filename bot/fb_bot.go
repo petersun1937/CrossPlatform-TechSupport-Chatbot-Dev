@@ -4,7 +4,6 @@ import (
 	"bytes"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	document "crossplatform_chatbot/document_proc"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
 	"encoding/json"
@@ -12,14 +11,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
-
-	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 )
 
 type FbBot interface {
 	Run() error
-	HandleMessengerMessage(senderID, messageText string)
+	//HandleMessengerMessage(senderID, messageText string)
 	//SendResponse(identifier interface{}, response string) error
 }
 
@@ -108,7 +104,7 @@ type MessengerEvent struct {
 }
 
 // HandleMessengerMessage processes incoming messages and sends a response
-func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
+/*func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
 	// Trim whitespace and check for empty message
 	if strings.TrimSpace(messageText) == "" {
 		fmt.Printf("Empty or invalid message received from %s, ignoring...\n", senderID)
@@ -129,7 +125,7 @@ func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
 	// Process the user's message if no token is sent
 	b.processUserMessage(senderID, messageText)
 	//}
-}
+}*/
 
 // validateAndGenerateToken checks if the user exists and generates a token if not
 // func (b *fbBot) validateAndGenerateToken(userID string) (*string, error) {
@@ -179,7 +175,7 @@ func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
 
 // // getUserProfile retrieves the user profile information from Facebook
 // func (b *fbBot) getUserProfile(userID string) (*service.UserProfile, error) {
-// 	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.conf.FacebookPageToken) // TODO move url to env
+// 	url := fmt.Sprintf("https://graph.facebook.com/%s?fields=first_name,last_name&access_token=%s", userID, b.conf.FacebookPageToken)
 
 // 	resp, err := http.Get(url)
 // 	if err != nil {
@@ -200,92 +196,92 @@ func (b *fbBot) HandleMessengerMessage(senderID, messageText string) {
 // }
 
 // processUserMessage processes the user message and responds accordingly
-func (b *fbBot) processUserMessage(senderID, text string) {
-	fmt.Printf("Received message from %s: %s \n", senderID, text)
+// func (b *fbBot) processUserMessage(senderID, text string) {
+// 	fmt.Printf("Received message from %s: %s \n", senderID, text)
 
-	var response string
-	var err error
+// 	var response string
+// 	var err error
 
-	// Check if the message is a command (starts with "/")
-	if strings.HasPrefix(text, "/") {
-		response = b.BaseBot.HandleCommand(text)
-		/*response, err = handleCommand(senderID, text, b)
-		if err != nil {
-			fmt.Printf("An error occurred: %s \n", err.Error())
-			response = "An error occurred while processing your command."
-		}*/
-	} else if b.conf.Screaming && len(text) > 0 {
-		// Check for a "screaming" mode if applicable (uppercase response)
-		response = strings.ToUpper(text)
-	} else {
-		// Fetch document embeddings and try to match based on similarity
-		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
-		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
-		if err != nil {
-			fmt.Printf("Error retrieving document embeddings: %v", err)
-			response = "Error retrieving document embeddings."
-		} else if b.conf.UseOpenAI {
-			// Perform similarity matching with the user's message
-			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
-			if err != nil {
-				fmt.Printf("Error retrieving document chunks: %v", err)
-				response = "Error retrieving related document information."
-			} else if len(topChunks) > 0 {
-				// If there are similar chunks found, provide them as context for GPT
-				context := strings.Join(topChunks, "\n")
-				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
+// 	// Check if the message is a command (starts with "/")
+// 	if strings.HasPrefix(text, "/") {
+// 		response = b.BaseBot.HandleCommand(text)
+// 		/*response, err = handleCommand(senderID, text, b)
+// 		if err != nil {
+// 			fmt.Printf("An error occurred: %s \n", err.Error())
+// 			response = "An error occurred while processing your command."
+// 		}*/
+// 	} else if b.conf.Screaming && len(text) > 0 {
+// 		// Check for a "screaming" mode if applicable (uppercase response)
+// 		response = strings.ToUpper(text)
+// 	} else {
+// 		// Fetch document embeddings and try to match based on similarity
+// 		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
+// 		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+// 		if err != nil {
+// 			fmt.Printf("Error retrieving document embeddings: %v", err)
+// 			response = "Error retrieving document embeddings."
+// 		} else if b.conf.UseOpenAI {
+// 			// Perform similarity matching with the user's message
+// 			topChunks, err := document.RetrieveTopNChunks(text, documentEmbeddings, 10, chunkText, 0.7) // Retrieve top 3 relevant chunks thresholded by score of 0.7
+// 			if err != nil {
+// 				fmt.Printf("Error retrieving document chunks: %v", err)
+// 				response = "Error retrieving related document information."
+// 			} else if len(topChunks) > 0 {
+// 				// If there are similar chunks found, provide them as context for GPT
+// 				context := strings.Join(topChunks, "\n")
+// 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
 
-				// Call GPT with the context and user query
-				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				}
-			} else {
-				// If no relevant document found, fallback to OpenAI response
-				response, err = b.BaseBot.GetOpenAIResponse(text)
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				}
-			}
-		} else {
-			// Use Dialogflow if OpenAI is not enabled
-			//b.BaseBot.handleMessageDialogflow(FACEBOOK, senderID, text, b) //TODO
-			return
-		}
-	}
+// 				// Call GPT with the context and user query
+// 				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				}
+// 			} else {
+// 				// If no relevant document found, fallback to OpenAI response
+// 				response, err = b.BaseBot.GetOpenAIResponse(text)
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				}
+// 			}
+// 		} else {
+// 			// Use Dialogflow if OpenAI is not enabled
+// 			//b.BaseBot.handleMessageDialogflow(FACEBOOK, senderID, text, b) //TODO
+// 			return
+// 		}
+// 	}
 
-	// Send the response if it's not empty
-	if response != "" {
-		err = b.SendResponse(senderID, response)
-		if err != nil {
-			fmt.Printf("Error sending response: %s\n", err.Error())
-		}
-	}
+// 	// Send the response if it's not empty
+// 	if response != "" {
+// 		err = b.SendReply(senderID, response)
+// 		if err != nil {
+// 			fmt.Printf("Error sending response: %s\n", err.Error())
+// 		}
+// 	}
 
-}
+// }
 
 // handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
-func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
+// func (b *fbBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-	// Check if the ID (identifier) is a string (which would be the sender ID for Facebook)
-	_, ok := identifier.(string)
-	if !ok {
-		return fmt.Errorf("invalid Facebook message identifier")
-	}
+// 	// Check if the ID (identifier) is a string (which would be the sender ID for Facebook)
+// 	_, ok := identifier.(string)
+// 	if !ok {
+// 		return fmt.Errorf("invalid Facebook message identifier")
+// 	}
 
-	// Iterate over the fulfillment messages returned by Dialogflow
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if text := msg.GetText(); text != nil {
-			// Send the response message to the user on Facebook Messenger
-			return b.SendResponse(identifier, text.Text[0])
-		}
-	}
+// 	// Iterate over the fulfillment messages returned by Dialogflow
+// 	for _, msg := range response.QueryResult.FulfillmentMessages {
+// 		if text := msg.GetText(); text != nil {
+// 			// Send the response message to the user on Facebook Messenger
+// 			return b.SendReply(identifier, text.Text[0])
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // sendMessage sends a message to the specified user on Messenger
-func (b *fbBot) SendResponse(senderID interface{}, messageText string) error {
+func (b *fbBot) SendReply(senderID interface{}, messageText string) error {
 	//conf := config.GetConfig()
 	url := b.conf.FacebookAPIURL + "/messages?access_token=" + b.conf.FacebookPageToken
 

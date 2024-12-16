@@ -4,20 +4,16 @@ import (
 	"bytes"
 	config "crossplatform_chatbot/configs"
 	"crossplatform_chatbot/database"
-	document "crossplatform_chatbot/document_proc"
 	"crossplatform_chatbot/models"
 	openai "crossplatform_chatbot/openai"
 	"crossplatform_chatbot/repository"
-	"crossplatform_chatbot/utils"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
-	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"gorm.io/gorm"
 )
@@ -25,15 +21,16 @@ import (
 type TgBot interface {
 	Run() error
 	//SetWebhook(webhookURL string) error
-	SendTelegramMessage(chatID int64, messageText string) error
+	//sendTelegramMessage(chatID int64, messageText string) error
 	//HandleTelegramUpdate(update tgbotapi.Update)
-	HandleTgMessage(message *tgbotapi.Message)
+	//HandleTgMessage(message *tgbotapi.Message)
 	//StoreDocumentChunks(filename, docID, text string, chunkSize, minchunkSize int) error
 	//V2ProcessDocument(filename, fileID, filePath string) ([]Document, []string, error)
 	//V2StoreDocumentChunks(filename, docID, docText string, chunkSize, overlap int) ([]Document, error)
-	ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error)
-	StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error)
+	//ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error)
+	//StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error)
 	GetDocFile(update tgbotapi.Update) (string, string, string, error)
+	ValidateUser(user *tgbotapi.User, message *tgbotapi.Message) (bool, error)
 	//sendResponse(identifier interface{}, response string) error
 }
 
@@ -47,36 +44,6 @@ type tgBot struct {
 	//openAIclient *openai.Client
 	//service *service.Service
 }
-
-// func NewTGBot(conf *config.Config, service *service.Service) (*tgBot, error) {
-// 	// Attempt to create a new Telegram bot using the provided token
-// 	botApi, err := tgbotapi.NewBotAPI(conf.TelegramBotToken)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	// Ensure botApi is not nil before proceeding
-// 	if botApi == nil {
-// 		return nil, errors.New("telegram Bot API is nil")
-// 	}
-
-// 	baseBot := &BaseBot{
-// 		Platform: TELEGRAM,
-// 		Service:  service,
-// 	}
-
-// 	// Initialize and return tgBot instance
-// 	return &tgBot{
-// 		BaseBot:      baseBot,
-// 		conf:         conf.BotConfig,
-// 		embConfig:    conf.EmbeddingConfig,
-// 		ctx:          context.Background(),
-// 		token:        conf.TelegramBotToken,
-// 		botApi:       botApi,
-// 		openAIclient: openai.NewClient(),
-// 	}, nil
-
-// }
 
 // creates a new TGBot instance
 func NewTGBot(botconf *config.BotConfig, embconf config.EmbeddingConfig, database database.Database, dao repository.DAO) (*tgBot, error) {
@@ -181,33 +148,33 @@ func (b *tgBot) Run() error {
 // }
 
 // Handle Telegram messages
-func (b *tgBot) HandleTgMessage(message *tgbotapi.Message) {
-	user := message.From
-	if user == nil {
-		return
-	}
+// func (b *tgBot) HandleTgMessage(message *tgbotapi.Message) {
+// 	user := message.From
+// 	if user == nil {
+// 		return
+// 	}
 
-	// token, err := b.validateAndGenerateToken(userIDStr, user, message)
-	userExists, err := b.validateUser(user, message)
-	if err != nil {
-		fmt.Printf("Error validating user: %s", err.Error())
-		return
-	}
+// 	// token, err := b.validateAndGenerateToken(userIDStr, user, message)
+// 	userExists, err := b.ValidateUser(user, message)
+// 	if err != nil {
+// 		fmt.Printf("Error validating user: %s", err.Error())
+// 		return
+// 	}
 
-	if !userExists {
-		// User was just created and welcomed, no further action needed.
-		return
-	}
+// 	if !userExists {
+// 		// User was just created and welcomed, no further action needed.
+// 		return
+// 	}
 
-	// if token != nil {
-	// 	b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
-	// } else {
-	b.processUserMessage(message, user.FirstName, message.Text)
-	//}
-}
+// 	// if token != nil {
+// 	// 	b.sendTelegramMessage(message.Chat.ID, "Welcome! Your access token is: "+*token)
+// 	// } else {
+// 	b.processUserMessage(message, user.FirstName, message.Text)
+// 	//}
+// }
 
 // validateUser checks if the user exists in the database and creates a new record if not.
-func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bool, error) {
+func (b *tgBot) ValidateUser(user *tgbotapi.User, message *tgbotapi.Message) (bool, error) {
 	var dbUser models.User
 
 	userIDStr := strconv.FormatInt(user.ID, 10)
@@ -233,7 +200,7 @@ func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bo
 
 			// Send a welcome message to the new user.
 			welcomeMessage := fmt.Sprintf("Welcome, %s!", user.UserName)
-			if err := b.SendResponse(message, welcomeMessage); err != nil {
+			if err := b.SendReply(message, welcomeMessage); err != nil {
 				return false, fmt.Errorf("error sending welcome message: %w", err)
 			}
 
@@ -285,118 +252,118 @@ func (b *tgBot) validateUser(user *tgbotapi.User, message *tgbotapi.Message) (bo
 // }
 
 // Process user messages and respond accordingly
-func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text string) { //chatID int64
-	chatID := message.Chat.ID
+// func (b *tgBot) processUserMessage(message *tgbotapi.Message, firstName, text string) { //chatID int64
+// 	chatID := message.Chat.ID
 
-	fmt.Printf("Received message from %s: %s \n", firstName, text)
-	fmt.Printf("Chat ID: %d \n", chatID)
+// 	fmt.Printf("Received message from %s: %s \n", firstName, text)
+// 	fmt.Printf("Chat ID: %d \n", chatID)
 
-	var response string
-	//var err error
+// 	var response string
+// 	//var err error
 
-	if strings.HasPrefix(text, "/") {
-		response = b.BaseBot.HandleCommand(text)
-		/*response, err = handleCommand(chatID, text, b)
-		if err != nil {
-			fmt.Printf("An error occurred: %s \n", err.Error())
-			response = "An error occurred while processing your command."
-		}*/
-	} else if b.conf.Screaming && len(text) > 0 {
-		response = strings.ToUpper(text)
-	} else {
-		// Get all document embeddings
-		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
-		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
-		if err != nil {
-			fmt.Printf("Error retrieving document embeddings: %v", err)
-			response = "Error retrieving document embeddings."
-		} else if b.conf.UseOpenAI {
-			//conf := config.GetConfig()
-			// Perform similarity matching with the user's message when OpenAI is enabled
-			topChunksText, err := document.RetrieveTopNChunks(text, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold) // Returns maximum N chunks with similarity threshold
-			if err != nil {
-				fmt.Printf("Error retrieving document chunks: %v", err)
-				response = "Error retrieving related document information."
-			} else if len(topChunksText) > 0 {
-				// If there are similar chunks found, respond with those
-				//response = fmt.Sprintf("Found related information:\n%s", strings.Join(topChunksText, "\n"))
+// 	if strings.HasPrefix(text, "/") {
+// 		response = b.BaseBot.HandleCommand(text)
+// 		/*response, err = handleCommand(chatID, text, b)
+// 		if err != nil {
+// 			fmt.Printf("An error occurred: %s \n", err.Error())
+// 			response = "An error occurred while processing your command."
+// 		}*/
+// 	} else if b.conf.Screaming && len(text) > 0 {
+// 		response = strings.ToUpper(text)
+// 	} else {
+// 		// Get all document embeddings
+// 		documentEmbeddings, chunkText, err := b.BaseBot.dao.FetchEmbeddings()
+// 		//documentEmbeddings, chunkText, err := b.Service.GetAllDocumentEmbeddings()
+// 		if err != nil {
+// 			fmt.Printf("Error retrieving document embeddings: %v", err)
+// 			response = "Error retrieving document embeddings."
+// 		} else if b.conf.UseOpenAI {
+// 			//conf := config.GetConfig()
+// 			// Perform similarity matching with the user's message when OpenAI is enabled
+// 			topChunksText, err := document.RetrieveTopNChunks(text, documentEmbeddings, b.embConfig.NumTopChunks, chunkText, b.embConfig.ScoreThreshold) // Returns maximum N chunks with similarity threshold
+// 			if err != nil {
+// 				fmt.Printf("Error retrieving document chunks: %v", err)
+// 				response = "Error retrieving related document information."
+// 			} else if len(topChunksText) > 0 {
+// 				// If there are similar chunks found, respond with those
+// 				//response = fmt.Sprintf("Found related information:\n%s", strings.Join(topChunksText, "\n"))
 
-				// If there are similar chunks found, provide them as context for GPT
-				context := strings.Join(topChunksText, "\n")
-				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
+// 				// If there are similar chunks found, provide them as context for GPT
+// 				context := strings.Join(topChunksText, "\n")
+// 				gptPrompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, text)
 
-				// Call GPT with the context and user query
-				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				} /*else {
-					response = fmt.Sprintf("Found related information based on context:\n%s", response)
-				}*/
-			} else {
-				// If no relevant document found, fallback to OpenAI response
-				response, err = b.BaseBot.GetOpenAIResponse(text)
-				//response = fmt.Sprintf("Found related information:\n%s", strings.Join(topChunksText, "\n"))
-				if err != nil {
-					response = fmt.Sprintf("OpenAI Error: %v", err)
-				}
-			}
-		} else {
-			// Fall back to Dialogflow if OpenAI is not enabled
-			//b.BaseBot.handleMessageDialogflow(TELEGRAM, message, text, b) //TODO
-			return
-		}
-	}
+// 				// Call GPT with the context and user query
+// 				response, err = b.BaseBot.GetOpenAIResponse(gptPrompt)
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				} /*else {
+// 					response = fmt.Sprintf("Found related information based on context:\n%s", response)
+// 				}*/
+// 			} else {
+// 				// If no relevant document found, fallback to OpenAI response
+// 				response, err = b.BaseBot.GetOpenAIResponse(text)
+// 				//response = fmt.Sprintf("Found related information:\n%s", strings.Join(topChunksText, "\n"))
+// 				if err != nil {
+// 					response = fmt.Sprintf("OpenAI Error: %v", err)
+// 				}
+// 			}
+// 		} else {
+// 			// Fall back to Dialogflow if OpenAI is not enabled
+// 			//b.BaseBot.handleMessageDialogflow(TELEGRAM, message, text, b) //TODO
+// 			return
+// 		}
+// 	}
 
-	/*if strings.HasPrefix(text, "/") {
-		response, err = handleCommand(chatID, text, b)
-		if err != nil {
-			fmt.Printf("An error occurred: %s \n", err.Error())
-			response = "An error occurred while processing your command."
-		}
-	} else if screaming && len(text) > 0 {
-		response = strings.ToUpper(text)
-	} else if useOpenAI {
-		// Call OpenAI to get the response
-		response, err = GetOpenAIResponse(text)
-		if err != nil {
-			response = fmt.Sprintf("OpenAI Error: %v", err)
-		}
-	} else {
-		handleMessageDialogflow(TELEGRAM, message, text, b)
-		return
-	}*/
+// 	/*if strings.HasPrefix(text, "/") {
+// 		response, err = handleCommand(chatID, text, b)
+// 		if err != nil {
+// 			fmt.Printf("An error occurred: %s \n", err.Error())
+// 			response = "An error occurred while processing your command."
+// 		}
+// 	} else if screaming && len(text) > 0 {
+// 		response = strings.ToUpper(text)
+// 	} else if useOpenAI {
+// 		// Call OpenAI to get the response
+// 		response, err = GetOpenAIResponse(text)
+// 		if err != nil {
+// 			response = fmt.Sprintf("OpenAI Error: %v", err)
+// 		}
+// 	} else {
+// 		handleMessageDialogflow(TELEGRAM, message, text, b)
+// 		return
+// 	}*/
 
-	if response != "" {
-		b.SendTelegramMessage(chatID, response)
-	}
-}
+// 	if response != "" {
+// 		b.sendTelegramMessage(chatID, response)
+// 	}
+// }
 
 // handleDialogflowResponse processes and sends the Dialogflow response to the appropriate platform
-func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
+// func (b *tgBot) handleDialogflowResponse(response *dialogflowpb.DetectIntentResponse, identifier interface{}) error {
 
-	// Send the response to respective platform
-	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
-	for _, msg := range response.QueryResult.FulfillmentMessages {
-		if _, ok := identifier.(*tgbotapi.Message); ok {
-			if text := msg.GetText(); text != nil {
-				return b.SendResponse(identifier, text.Text[0])
-			}
-		}
-	}
-	return fmt.Errorf("invalid Telegram message identifier")
-}
+// 	// Send the response to respective platform
+// 	// by iterating over the fulfillment messages returned by Dialogflow and processes any text messages.
+// 	for _, msg := range response.QueryResult.FulfillmentMessages {
+// 		if _, ok := identifier.(*tgbotapi.Message); ok {
+// 			if text := msg.GetText(); text != nil {
+// 				return b.SendReply(identifier, text.Text[0])
+// 			}
+// 		}
+// 	}
+// 	return fmt.Errorf("invalid Telegram message identifier")
+// }
 
 // Check identifier and send message via Telegram
-func (b *tgBot) SendResponse(identifier interface{}, response string) error {
+func (b *tgBot) SendReply(identifier interface{}, response string) error {
 	if message, ok := identifier.(*tgbotapi.Message); ok { // Assertion to check if identifier is of type tgbotapi.Message
-		return b.SendTelegramMessage(message.Chat.ID, response)
+		return b.sendTelegramMessage(message.Chat.ID, response)
 	} else {
 		return fmt.Errorf("invalid identifier for Telegram platform")
 	}
 }
 
 // Send a message via Telegram (TG requires manual construction of an HTTP request)
-func (b *tgBot) SendTelegramMessage(chatID int64, messageText string) error {
+func (b *tgBot) sendTelegramMessage(chatID int64, messageText string) error {
 	// Use the Telegram API URL from the config
 	url := b.conf.TelegramAPIURL + b.conf.TelegramBotToken + "/sendMessage"
 	//conf := config.GetConfig()
@@ -447,7 +414,7 @@ func (b *tgBot) GetDocFile(update tgbotapi.Update) (string, string, string, erro
 	return fileID, fileURL, filename, nil
 }
 
-func (b *tgBot) ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
+/*func (b *tgBot) ProcessDocument(filename, sessionID, filePath string) ([]Document, []string, error) {
 	// Extract text from the uploaded file (assuming downloadAndExtractText can handle local files)
 	docText, err := document.DownloadAndExtractText(filePath)
 	if err != nil {
@@ -462,7 +429,7 @@ func (b *tgBot) ProcessDocument(filename, sessionID, filePath string) ([]Documen
 
 	for i, chunk := range chunks {
 
-		document, err := b.StoreDocumentChunks(filename, filename+"_"+sessionID, chunk, i)
+		document, err := b.storeDocumentChunks(filename, filename+"_"+sessionID, chunk, i)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -486,7 +453,7 @@ func (b *tgBot) ProcessDocument(filename, sessionID, filePath string) ([]Documen
 	return documents, uniqueTags, nil
 }
 
-func (b *tgBot) StoreDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error) {
+func (b *tgBot) storeDocumentChunks(filename, docID, chunkText string, chunkid int) (Document, error) {
 	// Chunk the document with overlap
 
 	//client := openai.NewClient()
@@ -516,7 +483,7 @@ func (b *tgBot) StoreDocumentChunks(filename, docID, chunkText string, chunkid i
 	//}
 
 	return document, nil
-}
+}*/
 
 /*
 // Menu texts

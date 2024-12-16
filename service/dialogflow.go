@@ -3,44 +3,41 @@ package service
 import (
 	"context"
 	"crossplatform_chatbot/bot"
-	"crossplatform_chatbot/repository"
 	"fmt"
-	"strconv"
 	"strings"
 
 	document "crossplatform_chatbot/document_proc"
 
 	dialogflow "cloud.google.com/go/dialogflow/apiv2"
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/line/line-bot-sdk-go/linebot"
 )
 
-type DialogflowService struct {
-	dao repository.DAO
-}
+// type DialogflowService struct {
+// 	dao repository.DAO
+// }
 
-func NewDialogflowService(dao repository.DAO) *DialogflowService {
-	return &DialogflowService{dao: dao}
-}
+// func NewDialogflowService(dao repository.DAO) *DialogflowService {
+// 	return &DialogflowService{dao: dao}
+// }
 
 // DialogflowService
 
 // handleMessageDialogflow handles a message from the platform, sends it to Dialogflow for intent detection,
 // retrieves the corresponding context using RAG, generates a response with OpenAI, and sends it back to the user.
-func (s *Service) HandleMessageDialogflow(platform bot.Platform, identifier interface{}, message string) (string, error) {
+func (s *Service) HandleMessageDialogflow(platform bot.Platform, chatID, message string) (string, error) {
+	//func (s *Service) HandleMessageDialogflow(platform bot.Platform, identifier interface{}, message string) (string, error) {
 	//b := s.GetBot(botTag)
 	//baseBot := b.Base()
 
-	// Determine session ID
-	sessionID, err := s.getSessionID(platform, identifier)
+	// Determine chat ID
+	/*chatID, err := s.getSessionID(platform, identifier)
 	if err != nil {
 		fmt.Printf("Error getting session ID: %v\n", err)
 		return "", fmt.Errorf("error getting session ID: %v", err)
-	}
+	}*/
 
 	// Detect intent using Dialogflow
-	response, err := s.fetchDialogflowResponse(sessionID, message)
+	response, err := s.fetchDialogflowResponse(chatID, message)
 	if err != nil {
 		return "", fmt.Errorf("error detecting intent: %v", err)
 	}
@@ -181,31 +178,4 @@ func (s *Service) fallbackContext(userMessage string) (string, error) {
 	return context, nil
 
 	//return strings.Join(topChunks, "\n"), nil
-}
-
-func (s *Service) getSessionID(platform bot.Platform, identifier interface{}) (string, error) {
-	switch platform {
-	case bot.LINE:
-		if event, ok := identifier.(*linebot.Event); ok {
-			return event.Source.UserID, nil
-		}
-		return "", fmt.Errorf("invalid LINE event identifier")
-	case bot.TELEGRAM:
-		if message, ok := identifier.(*tgbotapi.Message); ok {
-			return strconv.FormatInt(message.Chat.ID, 10), nil
-		}
-		return "", fmt.Errorf("invalid Telegram message identifier")
-	case bot.FACEBOOK:
-		if recipientID, ok := identifier.(string); ok {
-			return recipientID, nil
-		}
-		return "", fmt.Errorf("invalid Messenger recipient identifier")
-	case bot.GENERAL:
-		if sessionID, ok := identifier.(string); ok {
-			return sessionID, nil
-		}
-		return "", fmt.Errorf("invalid session identifier")
-	default:
-		return "", fmt.Errorf("unsupported platform")
-	}
 }
