@@ -16,8 +16,8 @@ func (b *BaseBot) HandleCommand(command string) string {
 	//var err error
 
 	switch command {
-	case "/start":
-		message = "Welcome to the bot!"
+	/*case "/start":
+	message = "Welcome to the bot!"*/
 	case "/scream":
 		b.conf.Screaming = true // Enable screaming mode
 		message = "Scream mode enabled!"
@@ -26,10 +26,10 @@ func (b *BaseBot) HandleCommand(command string) string {
 		message = "Scream mode disabled!"
 	case "/openai":
 		b.conf.UseOpenAI = true
-		return "Using OpenAI for responses."
+		return "Disabling Dialogflow, only using OpenAI for responses."
 	case "/dialogflow":
 		b.conf.UseOpenAI = false
-		return "Using Dialogflow for intent matching."
+		return "Enabling Dialogflow for intent matching."
 	// case "/menu":
 	// 	// Handle menu sending based on platform
 	// 	/*switch platform {
@@ -52,9 +52,9 @@ func (b *BaseBot) HandleCommand(command string) string {
 	// 	}
 	// 	return "", nil
 	case "/help":
-		message = "Here are some commands you can use: /start, /help, /scream, /whisper, /menu. You can also type /openai for basic GPT-based responses with RAG, and /dialogflow to switch to use Dialogflow for intent matching!"
-	case "/custom":
-		message = "This is a custom response!"
+		message = "You can type /openai for basic GPT-based responses with RAG, and /dialogflow to enable Dialogflow for intent matching (Dialogflow enabled by default)!"
+	/*case "/custom":
+	message = "This is a custom response!"*/
 	default:
 		message = "I don't know that command"
 	}

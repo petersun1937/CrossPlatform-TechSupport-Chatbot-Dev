@@ -69,6 +69,7 @@ type EmbeddingConfig struct {
 	//EmbeddingBatchSize int
 	ChunkSize      int
 	MinChunkSize   int
+	OverlapSize    int
 	ScoreThreshold float64
 	NumTopChunks   int
 	TagEmbeddings  map[string][]float64
@@ -134,7 +135,7 @@ func loadConfig() error {
 			InstagramVerifyToken: os.Getenv("IG_VERIFY_TOKEN"),
 			InstagramPageToken:   os.Getenv("IG_PAGE_TOKEN"),
 			Screaming:            false,
-			UseOpenAI:            true,
+			UseOpenAI:            false,
 		},
 		OpenAIConfig: OpenAIConfig{
 			OpenaiAPIKey:   os.Getenv("OPENAI_API_KEY"),
@@ -146,7 +147,8 @@ func loadConfig() error {
 		},
 		EmbeddingConfig: EmbeddingConfig{
 			//EmbeddingBatchSize: getEnvInt("DOC_EMBEDDING_BATCH_SIZE", 10),
-			ChunkSize:      getEnvInt("DOC_CHUNK_SIZE", 300),
+			ChunkSize:      getEnvInt("DOC_CHUNK_SIZE", 500),
+			OverlapSize:    getEnvInt("DOC_OVERLAP_CHUNK_SIZE", 100),
 			MinChunkSize:   getEnvInt("DOC_MIN_CHUNK_SIZE", 50),
 			ScoreThreshold: getEnvFloat("DOC_SCORE_THRESHOLD", 0.65),
 			NumTopChunks:   getEnvInt("DOC_NUM_TOP_CHUNKS", 10),

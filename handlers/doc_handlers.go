@@ -27,7 +27,7 @@ func (h *Handler) HandlerGetDocuments(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"filenames": filenames})
 }
 
-func (h *Handler) V2HandlerDocumentUpload(c *gin.Context) {
+func (h *Handler) HandlerDocumentUpload(c *gin.Context) {
 
 	// Parse the file from the form-data
 	file, err := c.FormFile("document")

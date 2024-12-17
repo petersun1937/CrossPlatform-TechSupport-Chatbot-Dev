@@ -102,7 +102,7 @@ func (s *Service) ProcessDocument(filename, sessionID, filePath string) ([]model
 		return nil, nil, fmt.Errorf("error processing document: %w", err)
 	}
 
-	chunks := document.OverlapChunk(docText, 500, 100) //TODO to config
+	chunks := document.OverlapChunk(docText, s.embConfig.ChunkSize, s.embConfig.OverlapSize)
 	documents := make([]models.Document, 0)
 	tagList := []string{}
 

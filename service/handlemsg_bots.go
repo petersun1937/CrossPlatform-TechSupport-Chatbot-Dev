@@ -66,7 +66,7 @@ func (s *Service) HandleLine(req *http.Request) error {
 					fmt.Printf("Error getting chat ID: %v\n", err)
 					return fmt.Errorf("error getting chat ID: %v", err)
 				}
-				response, err := s.processUserMessage(chatID, message.Text, "line")
+				response, _, _, _, err := s.processUserMessage(chatID, message.Text, "line")
 				if err != nil {
 					return fmt.Errorf("error processing user message: %w", err)
 				}
@@ -131,7 +131,7 @@ func (s *Service) HandleTelegram(update tgbotapi.Update) error {
 
 			//tgBot.HandleTgMessage(update.Message)
 			// Process the message and generate a response using the service layer.
-			response, err := s.processUserMessage(chatID, update.Message.Text, "telegram")
+			response, _, _, _, err := s.processUserMessage(chatID, update.Message.Text, "telegram")
 			if err != nil {
 				return fmt.Errorf("error processing user message: %w", err)
 			}
@@ -159,7 +159,7 @@ func (s *Service) HandleMessenger(event bot.MessengerEvent) error {
 			senderID := msg.Sender.ID
 			if messageText := strings.TrimSpace(msg.Message.Text); messageText != "" {
 				//fbBot.HandleMessengerMessage(senderID, messageText)
-				response, err := s.processUserMessage(senderID, messageText, "facebook")
+				response, _, _, _, err := s.processUserMessage(senderID, messageText, "facebook")
 				if err != nil {
 					return fmt.Errorf("error processing user message: %w", err)
 				}
@@ -189,7 +189,7 @@ func (s *Service) HandleInstagram(event bot.InstagramEvent) error {
 			senderID := msg.Sender.ID
 			if messageText := strings.TrimSpace(msg.Message.Text); messageText != "" {
 				//igBot.HandleInstagramMessage(senderID, messageText)
-				response, err := s.processUserMessage(senderID, messageText, "facebook")
+				response, _, _, _, err := s.processUserMessage(senderID, messageText, "facebook")
 				if err != nil {
 					return fmt.Errorf("error processing user message: %w", err)
 				}
@@ -206,7 +206,7 @@ func (s *Service) HandleInstagram(event bot.InstagramEvent) error {
 }
 
 // HandleGeneral processes requests from the frontend for the general bot.
-func (s *Service) HandleGeneral(req models.GeneralRequest) (string, error) {
+func (s *Service) HandleGeneral(req models.GeneralRequest) (string, string, []string, []float64, error) {
 
 	// Get the bot responsible for sending the response.
 	//b := s.GetBot("general")
@@ -216,9 +216,9 @@ func (s *Service) HandleGeneral(req models.GeneralRequest) (string, error) {
 	}*/
 
 	// Process the message and generate a response using the service layer.
-	response, err := s.processUserMessage(req.SessionID, req.Message, "general")
+	response, intent, topChunkIDs, topChunkScores, err := s.processUserMessage(req.SessionID, req.Message, "general")
 	if err != nil {
-		return "", fmt.Errorf("error processing user message: %w", err)
+		return "", "", nil, nil, fmt.Errorf("error processing user message: %w", err)
 	}
 
 	// Use the bot to send the response.
@@ -231,7 +231,7 @@ func (s *Service) HandleGeneral(req models.GeneralRequest) (string, error) {
 	// }
 	//}
 
-	return response, nil
+	return response, intent, topChunkIDs, topChunkScores, nil
 }
 
 // getChatID returns a chat ID with a given platform
