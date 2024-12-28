@@ -10,6 +10,7 @@ import (
 
 	dialogflow "cloud.google.com/go/dialogflow/apiv2"
 	"cloud.google.com/go/dialogflow/apiv2/dialogflowpb"
+	"google.golang.org/api/option"
 )
 
 // type DialogflowService struct {
@@ -74,7 +75,8 @@ func (s *Service) fetchDialogflowResponse(sessionID, text string) (*dialogflowpb
 // Send a text query to Dialogflow and returns the response
 func (s *Service) detectIntentText(projectID, sessionID, text, languageCode string) (*dialogflowpb.DetectIntentResponse, error) {
 	ctx := context.Background()
-	client, err := dialogflow.NewSessionsClient(ctx)
+	//client, err := dialogflow.NewSessionsClient(ctx)
+	client, err := dialogflow.NewSessionsClient(ctx, option.WithCredentialsFile(s.botConfig.GoogleCredentialsFilePath))
 	if err != nil {
 		return nil, fmt.Errorf("error creating Dialogflow client: %v", err)
 	}
