@@ -16,6 +16,7 @@ type Config struct {
 	BotConfig
 	EmbeddingConfig
 	OpenAIConfig
+	RedisConfig
 	// DBString            string
 	// AppPort             string
 	// TelegramBotToken    string
@@ -67,6 +68,11 @@ type OpenAIConfig struct {
 	MaxTagTokens   int
 }
 
+type RedisConfig struct {
+	RedisEndpoint string
+	RedisPassword string
+}
+
 type EmbeddingConfig struct {
 	//EmbeddingBatchSize int
 	ChunkSize      int
@@ -81,16 +87,16 @@ type EmbeddingConfig struct {
 var instance *Config
 var once sync.Once
 
-func init() {
+/*func init() {
 	err := loadConfig()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
 	}
-}
+}*/
 
-func NewConfig() *Config {
+/*func NewConfig() *Config {
 	return &Config{}
-}
+}*/
 
 // Returns the singleton instance of Config
 func GetConfig() *Config {
@@ -110,7 +116,7 @@ func loadConfig() error {
 	if !isEnvSet("DATABASE_URL") {
 		err := godotenv.Load("configs/.env")
 		if err != nil {
-			return fmt.Errorf("error loading .env file: %w", err)
+			fmt.Printf("Warning: .env file not found: %v. Continuing without it...\n", err)
 		}
 	}
 
@@ -163,6 +169,10 @@ func loadConfig() error {
 			ScoreThreshold: getEnvFloat("DOC_SCORE_THRESHOLD", 0.65),
 			NumTopChunks:   getEnvInt("DOC_NUM_TOP_CHUNKS", 10),
 			TagEmbeddings:  make(map[string][]float64),
+		},
+		RedisConfig: RedisConfig{
+			RedisEndpoint: os.Getenv("REDIS_ENDPOINT"),
+			RedisPassword: os.Getenv("REDIS_PASSWORD"),
 		},
 	}
 
