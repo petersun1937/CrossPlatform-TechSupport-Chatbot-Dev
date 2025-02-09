@@ -17,6 +17,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
 - **Dynamic Intent Handling**: Dialogflow for intent matching and tagging documents for improved efficiency.
 - **Context-aware Responses**: Combines RAG and OpenAI models for enhanced conversational AI.
 - **Document Processing**: Upload, chunk, and store documents with embeddings for semantic search.
+- **Multiple AI Model Support**: OpenAI, Mistral, META (Llama), Together AI, with configurable AI Provider Switching.
 
 <!---   Handles FAQs, troubleshooting, and customer inquiries -->
 
@@ -34,19 +35,28 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
    - Embeddings are generated and stored for semantic search.
    - Relevant chunks are retrieved using a weighted combination of cosine similarity and fuzzy matching scores.
    - Retrieved context is added to prompts for response generation using GPT models.
-3. **Cross-platform Integration**:
+   Persistent Conversation Context:
+3. **Persistent Conversation Context**:
+   - Redis stores user conversation history in key-value pairs, allowing personalized, context-aware responses.
+   - History is fetched and included in prompts for OpenAI and Dialogflow, ensuring continuity across interactions.
+4. **Cross-platform Integration**:
    - APIs for Messenger, LINE, Telegram, and Instagram.
    - Custom web frontend built with React.
-
+5. **AI Provider Selection & Switching**:
+   - The chatbot supports multiple AI providers (OpenAI, Mistral, META, Together AI).
+   - Only one AI provider is active at a time.
+   - Dialogflow can be enabled/disabled independently for intent recognition.
+   - Users can switch between AI providers using commands (e.g., `/openai`, `/mistral`, `/meta`).
+   
 
 ## Tech Stack
 - **Frontend**: React
 - **Backend**: Go (Gin framework)
 - **Database**: PostgreSQL
-- **APIs**: OpenAI, Dialogflow, Telegram, LINE, META
-- **Cloud Deployment**: Heroku (backend), GitHub Pages (frontend)
+- **In-memory Store**: Redis (for conversation history and context storage)
+- **APIs**: OpenAI, Dialogflow, Telegram, LINE, META, Together AI, Hugging Face
+- **Cloud Deployment**: Google Cloud (backend), GitHub Pages (frontend)
 - **Tools**: PDF processing libraries for text extraction
-
 
 
 ## Installation
@@ -124,7 +134,7 @@ A multi-platform chatbot that provides intelligent customer and tech support usi
 - Automating knowledge retrieval for internal teams.
 - Enhancing collaborative workflows with intelligent document processing.
 - Acting as a meeting assistant for document organization and context provision.
-- Extending to incorporate custom-trained language models.
+- Extending to incorporate custom-trained or pretrained language models.
 
 
 ## License

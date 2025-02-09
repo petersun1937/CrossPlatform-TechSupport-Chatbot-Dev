@@ -46,6 +46,9 @@ func (s *Server) InitRoutes(handler *handlers.Handler) {
 	s.router.POST("/instagram/webhook", handler.HandleMessengerWebhook)
 	s.router.POST("/api/message", handler.HandlerGeneralBot)
 
+	// AI Provider Configuration Endpoint
+	s.router.GET("/api/ai-config", handler.HandlerGetAIConfig)
+
 	//s.router.POST("/dialogflow-webhook", handler.HandleDialogflowWebhook)
 
 	s.router.POST("/api/document/upload", handler.HandlerDocumentUpload)

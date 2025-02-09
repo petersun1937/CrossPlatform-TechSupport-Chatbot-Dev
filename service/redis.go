@@ -29,7 +29,7 @@ func initRedis(redisConfig config.RedisConfig) *redis.Client {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
-	fmt.Printf("Connected to Redis successfully!")
+	fmt.Println("Connected to Redis successfully!")
 	return client
 }
 

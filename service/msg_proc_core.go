@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crossplatform_chatbot/bot"
 	document "crossplatform_chatbot/document_proc"
 	"fmt"
 	"log"
@@ -45,12 +46,13 @@ func (s *Service) processUserMessage(chatID, message, botTag string) (string, st
 			history = "" // Default to no history
 		}
 
-		if s.botConfig.UseOpenAI {
+		if !s.botConfig.UseDialogflow {
 			// Retrieve top relevant chunks.
-			topChunks, err := document.RetrieveTopNChunks(message, documentEmbeddings, s.openaiClient, s.embConfig.NumTopChunks, chunkText, s.embConfig.ScoreThreshold)
+			topChunks, err := document.RetrieveTopNChunks(message, documentEmbeddings, s.aiClients.OpenAI, s.embConfig.NumTopChunks, chunkText, s.embConfig.ScoreThreshold)
 			if err != nil {
 				return "Error retrieving related document information.", "", nil, nil, err
 			}
+			prompt := ""
 
 			if len(topChunks) > 0 {
 				// Extract chunk IDs and scores
@@ -64,27 +66,30 @@ func (s *Service) processUserMessage(chatID, message, botTag string) (string, st
 				// Use chunks as context for OpenAI.
 				context := strings.Join(contextBuilder, "\n")
 				//prompt := fmt.Sprintf("Context:\n%s\nUser query: %s", context, message)
-				prompt := fmt.Sprintf("Conversation history:\n%s\n\nContext:\n%s\nUser query: %s", history, context, message)
+				prompt = fmt.Sprintf("Conversation history:\n%s\n\nContext:\n%s\nUser query: %s", history, context, message)
 
-				response, err = baseBot.GetOpenAIResponse(prompt)
-				if err != nil {
-					return fmt.Sprintf("OpenAI Error: %v", err), "", nil, nil, err
-				}
 			} else {
 				// Fallback to OpenAI response with history but without context.
-				prompt := fmt.Sprintf("Conversation history:\n%s\nUser query: %s", history, message)
-				response, err = baseBot.GetOpenAIResponse(prompt)
-				if err != nil {
-					return fmt.Sprintf("OpenAI Error: %v", err), "", nil, nil, err
-				}
+				prompt = fmt.Sprintf("Conversation history:\n%s\nUser query: %s", history, message)
+			}
+			//response, err = baseBot.GetOpenAIResponse(prompt)
+			response, err = s.generateResponse(prompt, baseBot)
+			if err != nil {
+				return fmt.Sprintf("Error: %v", err), "", nil, nil, err
 			}
 		} else {
 			// Fallback to dialogflow or another approach.
 			//response, err = s.HandleMessageDialogflow(sessionID, message)
-
-			response, intent, topChunkIDs, topChunkScores, err = s.handleMessageDialogflow(chatID, message, history) // sessionID passed down from outside
+			prompt := ""
+			prompt, intent, topChunkIDs, topChunkScores, err = s.handleMessageDialogflow(chatID, message, history)
 			if err != nil {
 				return "Error processing with Dialogflow.", "", nil, nil, err
+			}
+
+			//response, err = baseBot.GetOpenAIResponse(prompt)
+			response, err = s.generateResponse(prompt, baseBot)
+			if err != nil {
+				return "", "", nil, nil, fmt.Errorf("error generating response: %v", err)
 			}
 
 			// Send response back to the platform
@@ -102,6 +107,22 @@ func (s *Service) processUserMessage(chatID, message, botTag string) (string, st
 	}
 
 	return response, intent, topChunkIDs, topChunkScores, nil
+}
+
+func (s *Service) generateResponse(prompt string, b *bot.BaseBot) (string, error) {
+	if s.botConfig.UseOpenAI {
+		return b.GetOpenAIResponse(prompt)
+		//return s.aiClients.OpenAI.GetResponse(prompt)
+	} else if s.botConfig.UseMistral {
+		return b.GetMistralResponse(prompt)
+		//return s.aiClients.Mistral.GetResponse(prompt)
+	} else if s.botConfig.UseMETA {
+		return b.GetTogetherAIResponse(prompt)
+		//return s.aiClients.TogetherAI.GetResponse(prompt)
+	} /*else if s.botConfig.UseHuggingFace {
+		return s.aiClients.HuggingFace.GetResponse(prompt)
+	}*/
+	return "", fmt.Errorf("error: No AI provider is enabled in the configuration")
 }
 
 /*func getPlatformFromBotTag(botTag string) (bot.Platform, error) {

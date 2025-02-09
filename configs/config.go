@@ -17,6 +17,9 @@ type Config struct {
 	EmbeddingConfig
 	OpenAIConfig
 	RedisConfig
+	HuggingFaceConfig
+	MistralConfig
+	TogetherAIConfig
 	// DBString            string
 	// AppPort             string
 	// TelegramBotToken    string
@@ -57,6 +60,9 @@ type BotConfig struct {
 	InstagramPageToken        string
 	Screaming                 bool
 	UseOpenAI                 bool
+	UseMistral                bool
+	UseMETA                   bool
+	UseDialogflow             bool
 }
 
 type OpenAIConfig struct {
@@ -81,6 +87,21 @@ type EmbeddingConfig struct {
 	ScoreThreshold float64
 	NumTopChunks   int
 	TagEmbeddings  map[string][]float64
+}
+
+type HuggingFaceConfig struct {
+	HuggingFaceAPIKey string
+	HuggingFaceModel  string
+}
+
+type MistralConfig struct {
+	MistralAPIKey string
+	MistralModel  string
+}
+
+type TogetherAIConfig struct {
+	TogetherAIAPIKey string
+	TogetherAIModel  string
 }
 
 // Singleton instance of Config
@@ -151,7 +172,10 @@ func loadConfig() error {
 			InstagramVerifyToken:      os.Getenv("IG_VERIFY_TOKEN"),
 			InstagramPageToken:        os.Getenv("IG_PAGE_TOKEN"),
 			Screaming:                 false,
-			UseOpenAI:                 false,
+			UseOpenAI:                 true,
+			UseMistral:                false,
+			UseMETA:                   false,
+			UseDialogflow:             true,
 		},
 		OpenAIConfig: OpenAIConfig{
 			OpenaiAPIKey:   os.Getenv("OPENAI_API_KEY"),
@@ -173,6 +197,18 @@ func loadConfig() error {
 		RedisConfig: RedisConfig{
 			RedisEndpoint: os.Getenv("REDIS_ENDPOINT"),
 			RedisPassword: os.Getenv("REDIS_PASSWORD"),
+		},
+		HuggingFaceConfig: HuggingFaceConfig{
+			HuggingFaceAPIKey: os.Getenv("HUGGINGFACE_API_KEY"),
+			HuggingFaceModel:  os.Getenv("HUGGINGFACE_MODEL"),
+		},
+		MistralConfig: MistralConfig{
+			MistralAPIKey: os.Getenv("MISTRAL_API_KEY"),
+			MistralModel:  os.Getenv("MISTRAL_MODEL"),
+		},
+		TogetherAIConfig: TogetherAIConfig{
+			TogetherAIAPIKey: os.Getenv("TOGETHERAI_API_KEY"),
+			TogetherAIModel:  os.Getenv("TOGETHERAI_MODEL"),
 		},
 	}
 
